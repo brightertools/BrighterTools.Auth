@@ -26,21 +26,21 @@ jobs:
           node-version: 20
 
       - name: Restore
-        run: dotnet restore .\BrighterTools.Auth.sln
+        run: dotnet restore ./BrighterTools.Auth.sln
 
       - name: Build
-        run: dotnet build .\BrighterTools.Auth.sln --configuration Release --no-restore
+        run: dotnet build ./BrighterTools.Auth.sln --configuration Release --no-restore
 
       - name: Test backend
-        run: dotnet test .\BrighterTools.Auth.sln --configuration Release --no-build --verbosity normal
+        run: dotnet test ./BrighterTools.Auth.sln --configuration Release --no-build --verbosity normal
 
       - name: Install React companion dependencies
-        working-directory: .\react\brightertools-auth-react
+        working-directory: ./react/brightertools-auth-react
         run: npm install
 
       - name: Test React companion package
-        working-directory: .\react\brightertools-auth-react
+        working-directory: ./react/brightertools-auth-react
         run: npm test
 
       - name: Pack NuGet package
-        run: dotnet pack .\src\BrighterTools.Auth\BrighterTools.Auth.csproj --configuration Release --no-build -o .\artifacts
+        run: dotnet pack ./src/BrighterTools.Auth/BrighterTools.Auth.csproj --configuration Release --no-build -o ./artifacts
