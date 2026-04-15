@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Restore
+        run: dotnet restore .\BrighterTools.Auth.sln
+
+      - name: Build
+        run: dotnet build .\BrighterTools.Auth.sln --configuration Release --no-restore
+
+      - name: Test backend
+        run: dotnet test .\BrighterTools.Auth.sln --configuration Release --no-build --verbosity normal
+
+      - name: Install React companion dependencies
+        working-directory: .\react\brightertools-auth-react
+        run: npm install
+
+      - name: Test React companion package
+        working-directory: .\react\brightertools-auth-react
+        run: npm test
+
+      - name: Pack NuGet package
+        run: dotnet pack .\src\BrighterTools.Auth\BrighterTools.Auth.csproj --configuration Release --no-build -o .\artifacts

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>BrighterTools.Auth</PackageId>
+    <Title>BrighterTools.Auth</Title>
+    <RootNamespace>BrighterTools.Auth</RootNamespace>
+    <Description>Authentication composition abstractions and orchestration helpers. Host applications own controllers, persistence, claims, keys, and policy.</Description>
+    <PackageTags>authentication;auth;jwt;aspnetcore;identity;composition</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
