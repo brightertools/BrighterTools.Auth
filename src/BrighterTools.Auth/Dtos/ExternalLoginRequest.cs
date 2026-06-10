@@ -23,6 +23,12 @@ public sealed class ExternalLoginRequest
     /// Gets the requested tenant identifier when the host supports tenant selection.
     /// </summary>
     public string? TenantId { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether login may provision a new user when no linked account exists.
+    /// Prefer explicit external sign-up for public registration flows.
+    /// </summary>
+    public bool AllowProvisioning { get; init; }
 }
 
 

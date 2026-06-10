@@ -8,3 +8,5 @@ export const OnboardingCard = ({ onboarding }: { onboarding: OnboardingState }) 
     </div>
   </div>
 );
+
+

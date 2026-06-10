@@ -17,13 +17,29 @@ public interface IAuthOrchestrator
     /// </summary>
     Task<AuthResponse> LoginWithExternalProviderAsync(ExternalLoginRequest request, CancellationToken cancellationToken = default);
     /// <summary>
+    /// Creates and authenticates a user using a provider-issued external credential.
+    /// </summary>
+    Task<AuthResponse> SignupWithExternalProviderAsync(ExternalSignupRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
     /// Delegates password-based sign-up to the host registration workflow.
     /// </summary>
     Task<PasswordSignupResult> SignupWithPasswordAsync(PasswordSignupRequest request, CancellationToken cancellationToken = default);
     /// <summary>
+    /// Begins email verification before password-based sign-up.
+    /// </summary>
+    Task<BeginSignupEmailVerificationResponse> BeginSignupEmailVerificationAsync(BeginSignupEmailVerificationRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Verifies a signup email challenge code before password-based sign-up.
+    /// </summary>
+    Task<VerifySignupEmailVerificationCodeResponse> VerifySignupEmailVerificationCodeAsync(VerifySignupEmailVerificationCodeRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
     /// Delegates invitation acceptance and password capture to the host registration workflow.
     /// </summary>
     Task<InvitationAcceptanceResult> AcceptInvitationWithPasswordAsync(AcceptInvitationWithPasswordRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Issues a new session for a known, already-trusted user context. Use this for server-side session handoff flows rather than credential validation.
+    /// </summary>
+    Task<AuthResponse> IssueSessionAsync(IssueSessionRequest request, CancellationToken cancellationToken = default);
     /// <summary>
     /// Exchanges a refresh token for a new session according to the configured rotation rules.
     /// </summary>
@@ -81,6 +97,46 @@ public interface IAuthOrchestrator
     /// </summary>
     Task<LinkedProvidersResponse> UnlinkProviderAsync(string userId, AuthProviderType provider, string providerSubject, CancellationToken cancellationToken = default);
     /// <summary>
+    /// Returns all login methods and email/password state for the supplied user.
+    /// </summary>
+    Task<AccountLoginMethodsResponse> GetAccountLoginMethodsAsync(string userId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Begins changing the user's login email using a code, link, or both depending on configuration/request.
+    /// </summary>
+    Task<BeginLoginEmailChangeResponse> BeginLoginEmailChangeAsync(string userId, BeginLoginEmailChangeRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Verifies a login email change using an emailed code.
+    /// </summary>
+    Task<VerifyLoginEmailChangeResponse> VerifyLoginEmailChangeCodeAsync(string userId, VerifyLoginEmailChangeCodeRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Verifies a login email change using an emailed link token.
+    /// </summary>
+    Task<VerifyLoginEmailChangeResponse> ConfirmLoginEmailChangeAsync(ConfirmLoginEmailChangeRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Begins password setup for an account that may currently rely on an external provider.
+    /// </summary>
+    Task<BeginPasswordSetupResponse> BeginPasswordSetupAsync(string userId, BeginPasswordSetupRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Completes inline password setup after the login email has been verified.
+    /// </summary>
+    Task<CompletePasswordSetupResponse> CompletePasswordSetupAsync(string userId, CompletePasswordSetupRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Changes the password for an authenticated user after verifying their current password.
+    /// </summary>
+    Task<ChangePasswordResponse> ChangePasswordAsync(string userId, ChangePasswordRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Removes email/password login when another usable login provider remains.
+    /// </summary>
+    Task<RemovePasswordLoginResponse> RemovePasswordLoginAsync(string userId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Begins passwordless email login by OTP code and/or magic link.
+    /// </summary>
+    Task<BeginPasswordlessEmailLoginResponse> BeginPasswordlessEmailLoginAsync(BeginPasswordlessEmailLoginRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Completes passwordless email login and issues a session.
+    /// </summary>
+    Task<AuthResponse> CompletePasswordlessEmailLoginAsync(CompletePasswordlessEmailLoginRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
     /// Returns the current onboarding status for the specified user and tenant context.
     /// </summary>
     Task<OnboardingStatusResponse> GetOnboardingStatusAsync(string userId, string? tenantId, CancellationToken cancellationToken = default);
@@ -93,4 +149,8 @@ public interface IAuthOrchestrator
     /// </summary>
     Task<CurrentSessionResponse> GetCurrentSessionAsync(string userId, CancellationToken cancellationToken = default);
 }
+
+
+
+
 

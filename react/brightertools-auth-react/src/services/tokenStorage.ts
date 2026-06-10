@@ -8,7 +8,18 @@ export interface TokenStorage {
 export const createLocalStorageTokenStorage = (key = "bt.auth.session"): TokenStorage => ({
   get() {
     const value = globalThis.localStorage?.getItem(key);
-    return value ? (JSON.parse(value) as AuthSession) : null;
+    if (!value) return null;
+
+    const parsed = JSON.parse(value) as AuthSession & { jwtToken?: string; expiresAt?: string };
+    if (!parsed.accessToken && parsed.jwtToken) {
+      return {
+        ...parsed,
+        accessToken: parsed.jwtToken,
+        expiresAtUtc: parsed.expiresAt ?? parsed.expiresAtUtc ?? ""
+      };
+    }
+
+    return parsed;
   },
   set(session) {
     if (!globalThis.localStorage) {
@@ -23,3 +34,5 @@ export const createLocalStorageTokenStorage = (key = "bt.auth.session"): TokenSt
     globalThis.localStorage.setItem(key, JSON.stringify(session));
   }
 });
+
+

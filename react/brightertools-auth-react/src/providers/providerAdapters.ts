@@ -1,6 +1,8 @@
-import type { AuthProvider } from "../types/auth";
+import type { AuthProviderType } from "../types/auth";
 
 export interface ExternalProviderAdapter {
-  provider: AuthProvider;
+  provider: AuthProviderType;
   beginLogin(): Promise<string>;
 }
+
+

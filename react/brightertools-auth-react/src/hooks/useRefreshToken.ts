@@ -6,7 +6,7 @@ export const useRefreshToken = () => {
 
   return async (request: RefreshTokenRequest) => {
     const response = await api.refresh(request);
-    setSession(response.session ?? null);
+    setSession(response.data?.session ?? null);
     return response;
   };
 };

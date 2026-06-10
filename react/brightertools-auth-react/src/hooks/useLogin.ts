@@ -6,7 +6,7 @@ export const useLogin = () => {
 
   return async (request: PasswordLoginRequest) => {
     const response = await api.loginWithPassword(request);
-    setSession(response.session ?? null);
+    setSession(response.data?.session ?? null);
     return response;
   };
 };

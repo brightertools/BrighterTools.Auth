@@ -1,8 +1,11 @@
-﻿namespace BrighterTools.Auth.Models;
+﻿using System.Text.Json.Serialization;
+
+namespace BrighterTools.Auth.Models;
 
 /// <summary>
 /// Specifies the supported auth Provider type values.
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum AuthProviderType
 {
     /// <summary>
@@ -28,6 +31,9 @@ public enum AuthProviderType
     /// <summary>
     /// Represents passkey-based authentication.
     /// </summary>
-    Passkey = 5
+    Passkey = 5,
+    /// <summary>
+    /// Represents passwordless email one-time-code or magic-link authentication.
+    /// </summary>
+    EmailOtp = 6
 }
-

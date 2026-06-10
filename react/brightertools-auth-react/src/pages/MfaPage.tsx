@@ -9,3 +9,5 @@ export const MfaPage = () => (
     </div>
   </div>
 );
+
+

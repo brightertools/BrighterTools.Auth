@@ -1,4 +1,5 @@
 ﻿using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Defaults;
 using BrighterTools.Auth.Dtos;
 using BrighterTools.Auth.Models;
 using BrighterTools.Auth.Options;
@@ -14,6 +15,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     private readonly IUserLookupService _userLookupService;
     private readonly IUserProvisioningService _userProvisioningService;
     private readonly IRegistrationWorkflowService _registrationWorkflowService;
+    private readonly ISignupEmailVerificationWorkflowService _signupEmailVerificationWorkflowService;
     private readonly IPasswordVerifier _passwordVerifier;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILegacyPasswordVerifier _legacyPasswordVerifier;
@@ -21,6 +23,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     private readonly IEnumerable<IExternalAuthProviderValidator> _externalValidators;
     private readonly IExternalLoginStore _externalLoginStore;
     private readonly IExternalUserProvisioningPolicy _externalUserProvisioningPolicy;
+    private readonly IExternalSignupPolicy _externalSignupPolicy;
     private readonly IJwtPayloadBuilder _jwtPayloadBuilder;
     private readonly ITokenIssuer _tokenIssuer;
     private readonly IRefreshTokenStore _refreshTokenStore;
@@ -29,10 +32,13 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     private readonly IOnboardingStateEvaluator _onboardingStateEvaluator;
     private readonly IOnboardingCompletionService _onboardingCompletionService;
     private readonly IEmailWorkflowService _emailWorkflowService;
+    private readonly IAccountLoginMethodWorkflowService _accountLoginMethodWorkflowService;
+    private readonly IPasswordlessEmailLoginWorkflowService _passwordlessEmailLoginWorkflowService;
     private readonly IMfaSecretStore _mfaSecretStore;
     private readonly IMfaChallengeService _mfaChallengeService;
     private readonly IRecoveryCodeService _recoveryCodeService;
     private readonly IUserLoginProviderPolicy _loginProviderPolicy;
+    private readonly IUserLoginProviderUnlinkPolicy _loginProviderUnlinkPolicy;
     private readonly IUserSecurityEventRecorder _securityEventRecorder;
     private readonly IClock _clock;
     private readonly BrighterToolsAuthOptions _options;
@@ -51,6 +57,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         IEnumerable<IExternalAuthProviderValidator> externalValidators,
         IExternalLoginStore externalLoginStore,
         IExternalUserProvisioningPolicy externalUserProvisioningPolicy,
+        IExternalSignupPolicy externalSignupPolicy,
         IJwtPayloadBuilder jwtPayloadBuilder,
         ITokenIssuer tokenIssuer,
         IRefreshTokenStore refreshTokenStore,
@@ -59,17 +66,22 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         IOnboardingStateEvaluator onboardingStateEvaluator,
         IOnboardingCompletionService onboardingCompletionService,
         IEmailWorkflowService emailWorkflowService,
+        IAccountLoginMethodWorkflowService accountLoginMethodWorkflowService,
+        IPasswordlessEmailLoginWorkflowService passwordlessEmailLoginWorkflowService,
         IMfaSecretStore mfaSecretStore,
         IMfaChallengeService mfaChallengeService,
         IRecoveryCodeService recoveryCodeService,
         IUserLoginProviderPolicy loginProviderPolicy,
+        IUserLoginProviderUnlinkPolicy loginProviderUnlinkPolicy,
         IUserSecurityEventRecorder securityEventRecorder,
         IClock clock,
-        IOptions<BrighterToolsAuthOptions> options)
+        IOptions<BrighterToolsAuthOptions> options,
+        ISignupEmailVerificationWorkflowService? signupEmailVerificationWorkflowService = null)
     {
         _userLookupService = userLookupService;
         _userProvisioningService = userProvisioningService;
         _registrationWorkflowService = registrationWorkflowService;
+        _signupEmailVerificationWorkflowService = signupEmailVerificationWorkflowService ?? new UnsupportedSignupEmailVerificationWorkflowService();
         _passwordVerifier = passwordVerifier;
         _passwordHasher = passwordHasher;
         _legacyPasswordVerifier = legacyPasswordVerifier;
@@ -77,6 +89,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         _externalValidators = externalValidators;
         _externalLoginStore = externalLoginStore;
         _externalUserProvisioningPolicy = externalUserProvisioningPolicy;
+        _externalSignupPolicy = externalSignupPolicy;
         _jwtPayloadBuilder = jwtPayloadBuilder;
         _tokenIssuer = tokenIssuer;
         _refreshTokenStore = refreshTokenStore;
@@ -85,10 +98,13 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         _onboardingStateEvaluator = onboardingStateEvaluator;
         _onboardingCompletionService = onboardingCompletionService;
         _emailWorkflowService = emailWorkflowService;
+        _accountLoginMethodWorkflowService = accountLoginMethodWorkflowService;
+        _passwordlessEmailLoginWorkflowService = passwordlessEmailLoginWorkflowService;
         _mfaSecretStore = mfaSecretStore;
         _mfaChallengeService = mfaChallengeService;
         _recoveryCodeService = recoveryCodeService;
         _loginProviderPolicy = loginProviderPolicy;
+        _loginProviderUnlinkPolicy = loginProviderUnlinkPolicy;
         _securityEventRecorder = securityEventRecorder;
         _clock = clock;
         _options = options.Value;
@@ -144,13 +160,36 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         var user = await _userLookupService.FindByExternalLoginAsync(identity.Provider, identity.ProviderSubject, cancellationToken);
         if (user is null)
         {
+            if (!request.AllowProvisioning || !_options.ExternalSignup.AllowProvisioningFromLogin)
+            {
+                throw new InvalidOperationException("No account is linked to this login method.");
+            }
+
             var provisioningDecision = await _externalUserProvisioningPolicy.EvaluateAsync(identity, cancellationToken);
             if (!provisioningDecision.AllowProvisioning)
             {
                 throw new InvalidOperationException(provisioningDecision.Reason ?? "No account is linked to this login method.");
             }
 
-            user = await _userProvisioningService.CreateExternalUserAsync(identity, cancellationToken);
+            var signupContext = new ExternalSignupContext
+            {
+                Request = new ExternalSignupRequest
+                {
+                    Provider = request.Provider,
+                    Credential = request.Credential,
+                    TenantId = request.TenantId
+                },
+                Identity = identity,
+                IsExplicitSignup = false
+            };
+
+            var signupDecision = await _externalSignupPolicy.EvaluateAsync(signupContext, cancellationToken);
+            if (!signupDecision.Allowed)
+            {
+                throw new InvalidOperationException(signupDecision.Reason ?? "This external login cannot create an account.");
+            }
+
+            user = await _userProvisioningService.CreateExternalUserAsync(signupContext, cancellationToken);
             await _externalLoginStore.LinkAsync(user.Id, identity, cancellationToken);
         }
 
@@ -159,6 +198,60 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         return await CreateAuthResponseAsync(user, request.Provider, request.TenantId, false, cancellationToken);
     }
 
+    /// <summary>
+    /// Creates and authenticates a user with an external provider.
+    /// </summary>
+    public async Task<AuthResponse> SignupWithExternalProviderAsync(ExternalSignupRequest request, CancellationToken cancellationToken = default)
+    {
+        EnsureProviderEnabled(request.Provider);
+
+        var validator = _externalValidators.FirstOrDefault(x => x.Provider == request.Provider)
+            ?? throw new InvalidOperationException($"No validator registered for provider '{request.Provider}'.");
+
+        var identity = await validator.ValidateAsync(request.Credential, cancellationToken);
+        var existingUser = await _userLookupService.FindByExternalLoginAsync(identity.Provider, identity.ProviderSubject, cancellationToken);
+        if (existingUser is not null)
+        {
+            throw new InvalidOperationException("This external login is already linked to an account.");
+        }
+
+        var signupContext = new ExternalSignupContext
+        {
+            Request = request,
+            Identity = identity,
+            IsExplicitSignup = true
+        };
+
+        var signupDecision = await _externalSignupPolicy.EvaluateAsync(signupContext, cancellationToken);
+        if (!signupDecision.Allowed)
+        {
+            throw new InvalidOperationException(signupDecision.Reason ?? "This external login cannot create an account.");
+        }
+
+        var user = await _userProvisioningService.CreateExternalUserAsync(signupContext, cancellationToken);
+        await _externalLoginStore.LinkAsync(user.Id, identity, cancellationToken);
+
+        EnsureUserCanSignIn(user);
+        await EnsureProviderAllowedAsync(user, request.Provider, request.TenantId, cancellationToken);
+        return await CreateAuthResponseAsync(user, request.Provider, request.TenantId, false, cancellationToken);
+    }
+
+    /// <summary>
+    /// Issues a new session for a user whose identity has already been trusted by the host application.
+    /// </summary>
+    public async Task<AuthResponse> IssueSessionAsync(IssueSessionRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserId))
+        {
+            throw new InvalidOperationException("User id is required.");
+        }
+
+        EnsureProviderEnabled(request.Provider);
+        var user = await RequireUserAsync(request.UserId, cancellationToken);
+        EnsureUserCanSignIn(user);
+        await EnsureProviderAllowedAsync(user, request.Provider, request.TenantId, cancellationToken);
+        return await CreateAuthResponseAsync(user, request.Provider, request.TenantId, request.SwitchToCurrentTenant, cancellationToken);
+    }
     /// <summary>
     /// Refreshes an existing authentication session.
     /// </summary>
@@ -197,6 +290,18 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     /// </summary>
     public Task<PasswordSignupResult> SignupWithPasswordAsync(PasswordSignupRequest request, CancellationToken cancellationToken = default)
         => _registrationWorkflowService.SignupWithPasswordAsync(request, cancellationToken);
+
+    /// <summary>
+    /// Begins email verification before password-based sign-up.
+    /// </summary>
+    public Task<BeginSignupEmailVerificationResponse> BeginSignupEmailVerificationAsync(BeginSignupEmailVerificationRequest request, CancellationToken cancellationToken = default)
+        => _signupEmailVerificationWorkflowService.BeginSignupEmailVerificationAsync(request, cancellationToken);
+
+    /// <summary>
+    /// Verifies a signup email challenge code before password-based sign-up.
+    /// </summary>
+    public Task<VerifySignupEmailVerificationCodeResponse> VerifySignupEmailVerificationCodeAsync(VerifySignupEmailVerificationCodeRequest request, CancellationToken cancellationToken = default)
+        => _signupEmailVerificationWorkflowService.VerifySignupEmailVerificationCodeAsync(request, cancellationToken);
 
     /// <summary>
     /// Accepts an invitation using a password-based flow.
@@ -338,6 +443,12 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
             ?? throw new InvalidOperationException($"No validator registered for provider '{provider}'.");
 
         var identity = await validator.ValidateAsync(credential, cancellationToken);
+        var existingUser = await _userLookupService.FindByExternalLoginAsync(identity.Provider, identity.ProviderSubject, cancellationToken);
+        if (existingUser is not null && !string.Equals(existingUser.Id, userId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("This external login is already linked to another user.");
+        }
+
         await _externalLoginStore.LinkAsync(userId, identity, cancellationToken);
         return await GetLinkedProvidersAsync(userId, cancellationToken);
     }
@@ -347,10 +458,96 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     /// </summary>
     public async Task<LinkedProvidersResponse> UnlinkProviderAsync(string userId, AuthProviderType provider, string providerSubject, CancellationToken cancellationToken = default)
     {
+        var user = await RequireUserAsync(userId, cancellationToken);
+        var linkedLogins = await _externalLoginStore.GetLinkedLoginsAsync(userId, cancellationToken);
+        var unlinkDecision = await _loginProviderUnlinkPolicy.EvaluateAsync(new ProviderUnlinkContext
+        {
+            User = user,
+            Provider = provider,
+            ProviderSubject = providerSubject,
+            LinkedLogins = linkedLogins
+        }, cancellationToken);
+
+        if (!unlinkDecision.Allowed)
+        {
+            throw new InvalidOperationException(unlinkDecision.Reason ?? "This login provider cannot be removed.");
+        }
+
         await _externalLoginStore.UnlinkAsync(userId, provider, providerSubject, cancellationToken);
         return await GetLinkedProvidersAsync(userId, cancellationToken);
     }
 
+    /// <summary>
+    /// Gets account login methods for the supplied user.
+    /// </summary>
+    public Task<AccountLoginMethodsResponse> GetAccountLoginMethodsAsync(string userId, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.GetAccountLoginMethodsAsync(userId, cancellationToken);
+
+    /// <summary>
+    /// Begins a login email change challenge.
+    /// </summary>
+    public Task<BeginLoginEmailChangeResponse> BeginLoginEmailChangeAsync(string userId, BeginLoginEmailChangeRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.BeginLoginEmailChangeAsync(userId, request, cancellationToken);
+
+    /// <summary>
+    /// Verifies a login email change with a code.
+    /// </summary>
+    public Task<VerifyLoginEmailChangeResponse> VerifyLoginEmailChangeCodeAsync(string userId, VerifyLoginEmailChangeCodeRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.VerifyLoginEmailChangeCodeAsync(userId, request, cancellationToken);
+
+    /// <summary>
+    /// Verifies a login email change with a link token.
+    /// </summary>
+    public Task<VerifyLoginEmailChangeResponse> ConfirmLoginEmailChangeAsync(ConfirmLoginEmailChangeRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.ConfirmLoginEmailChangeAsync(request, cancellationToken);
+
+    /// <summary>
+    /// Begins password setup for the supplied user.
+    /// </summary>
+    public Task<BeginPasswordSetupResponse> BeginPasswordSetupAsync(string userId, BeginPasswordSetupRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.BeginPasswordSetupAsync(userId, request, cancellationToken);
+
+    /// <summary>
+    /// Completes inline password setup for the supplied user.
+    /// </summary>
+    public Task<CompletePasswordSetupResponse> CompletePasswordSetupAsync(string userId, CompletePasswordSetupRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.CompletePasswordSetupAsync(userId, request, cancellationToken);
+
+    /// <summary>
+    /// Changes the password for an authenticated user.
+    /// </summary>
+    public Task<ChangePasswordResponse> ChangePasswordAsync(string userId, ChangePasswordRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.ChangePasswordAsync(userId, request, cancellationToken);
+
+    /// <summary>
+    /// Removes password login for the supplied user.
+    /// </summary>
+    public Task<RemovePasswordLoginResponse> RemovePasswordLoginAsync(string userId, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.RemovePasswordLoginAsync(userId, cancellationToken);
+
+    /// <summary>
+    /// Begins a passwordless email login challenge.
+    /// </summary>
+    public Task<BeginPasswordlessEmailLoginResponse> BeginPasswordlessEmailLoginAsync(BeginPasswordlessEmailLoginRequest request, CancellationToken cancellationToken = default)
+        => _passwordlessEmailLoginWorkflowService.BeginAsync(request, cancellationToken);
+
+    /// <summary>
+    /// Completes passwordless email login and issues a session.
+    /// </summary>
+    public async Task<AuthResponse> CompletePasswordlessEmailLoginAsync(CompletePasswordlessEmailLoginRequest request, CancellationToken cancellationToken = default)
+    {
+        EnsureProviderEnabled(AuthProviderType.EmailOtp);
+        var result = await _passwordlessEmailLoginWorkflowService.CompleteAsync(request, cancellationToken);
+        if (string.IsNullOrWhiteSpace(result.UserId))
+        {
+            throw new InvalidOperationException("Passwordless email login failed.");
+        }
+
+        var user = await RequireUserAsync(result.UserId, cancellationToken);
+        EnsureUserCanSignIn(user);
+        await EnsureProviderAllowedAsync(user, AuthProviderType.EmailOtp, request.TenantId, cancellationToken);
+        return await CreateAuthResponseAsync(user, AuthProviderType.EmailOtp, request.TenantId, request.SwitchToCurrentTenant, cancellationToken);
+    }
     /// <summary>
     /// Gets onboarding status for the supplied user and tenant context.
     /// </summary>
@@ -523,4 +720,6 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         }
     }
 }
+
+
 

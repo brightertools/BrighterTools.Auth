@@ -97,6 +97,24 @@ public sealed class DefaultAuthOrchestratorTests
     }
 
     [Fact]
+    public async Task IssueSession_IssuesIndependentSession()
+    {
+        var harness = TestHarness.Create();
+
+        var response = await harness.Orchestrator.IssueSessionAsync(new IssueSessionRequest
+        {
+            UserId = "user-1",
+            Provider = AuthProviderType.Password,
+            TenantId = "tenant-a",
+            SwitchToCurrentTenant = true
+        });
+
+        Assert.NotNull(response.Session);
+        Assert.Equal("issued-access-token", response.Session!.AccessToken);
+        Assert.Equal("refresh-1", response.Session.RefreshToken);
+        Assert.Equal("tenant-a", response.Session.CurrentTenant?.TenantId);
+    }
+    [Fact]
     public async Task Refresh_RotatesRefreshToken()
     {
         var harness = TestHarness.Create();

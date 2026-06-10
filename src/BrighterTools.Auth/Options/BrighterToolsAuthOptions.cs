@@ -1,4 +1,4 @@
-﻿namespace BrighterTools.Auth.Options;
+namespace BrighterTools.Auth.Options;
 
 /// <summary>
 /// Groups the configurable behaviors exposed by BrighterTools.Auth.
@@ -24,6 +24,16 @@ public sealed class BrighterToolsAuthOptions
     /// Gets or sets the enabled login provider configuration.
     /// </summary>
     public ProviderOptions Providers { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets external identity provider validation settings.
+    /// </summary>
+    public ExternalProviderOptions ExternalProviders { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets external sign-up security settings.
+    /// </summary>
+    public ExternalSignupOptions ExternalSignup { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the MFA configuration surfaced through the library.

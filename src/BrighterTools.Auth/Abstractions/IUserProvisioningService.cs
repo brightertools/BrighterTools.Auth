@@ -12,6 +12,11 @@ public interface IUserProvisioningService
     /// </summary>
     Task<AuthUser> CreateExternalUserAsync(ExternalIdentity identity, CancellationToken cancellationToken = default);
     /// <summary>
+    /// Creates a new user from a validated external identity and the sign-up request that authorized provisioning.
+    /// </summary>
+    Task<AuthUser> CreateExternalUserAsync(ExternalSignupContext context, CancellationToken cancellationToken = default)
+        => CreateExternalUserAsync(context.Identity, cancellationToken);
+    /// <summary>
     /// Creates a new password-based user record.
     /// </summary>
     Task<AuthUser> CreatePasswordUserAsync(AuthUser user, string password, CancellationToken cancellationToken = default);

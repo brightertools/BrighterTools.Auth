@@ -9,3 +9,4 @@ export const useOnboarding = () => {
     complete: (request: CompleteOnboardingRequest) => api.completeOnboarding(request)
   };
 };
+

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+using BrighterTools.Auth.Models;
+using Microsoft.Extensions.Options;
 
 namespace BrighterTools.Auth.Options;
 
@@ -32,6 +33,16 @@ public sealed class BrighterToolsAuthOptionsValidator : IValidateOptions<Brighte
         if (options.Providers.EnabledProviders is null)
         {
             failures.Add("BrighterToolsAuth:Providers:EnabledProviders must be configured.");
+        }
+
+        if (options.Providers.EnabledProviders?.Contains(AuthProviderType.Apple) == true && options.ExternalProviders.Apple.ValidationAudiences.Count == 0)
+        {
+            failures.Add("BrighterToolsAuth:ExternalProviders:Apple must include at least one audience or WebClientId when Apple is enabled.");
+        }
+
+        if (options.Providers.EnabledProviders?.Contains(AuthProviderType.Google) == true && options.ExternalProviders.Google.ValidationAudiences.Count == 0)
+        {
+            failures.Add("BrighterToolsAuth:ExternalProviders:Google must include at least one audience or WebClientId when Google is enabled.");
         }
 
         return failures.Count == 0

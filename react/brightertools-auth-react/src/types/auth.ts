@@ -1,4 +1,5 @@
-export type AuthProvider = "password" | "google" | "apple" | "microsoft" | "passkey";
+﻿export type AuthProviderType = "Password" | "Google" | "Apple" | "EmailOtp" | "Microsoft" | "Passkey";
+export type EmailChallengeDeliveryMode = "Code" | "Link" | "CodeAndLink";
 
 export interface TenantMembership {
   tenantId: string;
@@ -26,16 +27,33 @@ export interface AuthSession {
   accessToken: string;
   refreshToken: string;
   expiresAtUtc: string;
-  provider: AuthProvider;
-  user: AuthUser;
+  provider?: AuthProviderType;
+  user?: AuthUser;
   currentTenant?: TenantMembership;
-  onboarding: OnboardingState;
+  onboarding?: OnboardingState;
   payload?: Record<string, unknown>;
 }
 
 export interface LinkedProvider {
-  provider: AuthProvider;
+  provider: AuthProviderType;
   providerSubject: string;
-  email?: string;
+  email?: string | null;
+  emailVerified?: boolean;
   linkedAtUtc: string;
 }
+
+export interface AccountLoginMethods {
+  email: string;
+  pendingEmail?: string | null;
+  emailVerified: boolean;
+  hasPassword: boolean;
+  notificationEmail?: string | null;
+  notificationEmailVerified?: boolean;
+  primaryEmailIsPrivateRelay?: boolean;
+  requiresNotificationEmailSetup?: boolean;
+  providers: LinkedProvider[];
+}
+
+
+
+

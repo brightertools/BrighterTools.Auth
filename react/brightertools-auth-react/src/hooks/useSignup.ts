@@ -1,3 +1,3 @@
 export const useSignup = () => {
-  return async <T>(signup: () => Promise<T>) => signup();
+  throw new Error("useSignup has been replaced by usePasswordSignup and useExternalSignup.");
 };

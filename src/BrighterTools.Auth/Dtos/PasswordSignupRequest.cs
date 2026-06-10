@@ -36,6 +36,11 @@ public sealed class PasswordSignupRequest
     public string? Phone { get; init; }
 
     /// <summary>
+    /// Gets the verified email challenge identifier used to prove ownership before password sign-up.
+    /// </summary>
+    public string? EmailVerificationChallengeId { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether the user accepted the terms.
     /// </summary>
     public bool TermsAccepted { get; init; }
@@ -66,5 +71,6 @@ public sealed class PasswordSignupRequest
     [Required]
     public IDictionary<string, object?> Fields { get; init; } = new Dictionary<string, object?>();
 }
+
 
 

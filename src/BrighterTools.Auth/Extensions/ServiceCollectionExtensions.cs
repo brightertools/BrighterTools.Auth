@@ -38,10 +38,19 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<ILegacyPasswordVerifier, NoOpLegacyPasswordVerifier>();
         services.TryAddSingleton<IPasswordRehashPolicy, DefaultPasswordRehashPolicy>();
         services.TryAddSingleton<IUserLoginProviderPolicy, EnabledProvidersUserLoginProviderPolicy>();
+        services.TryAddSingleton<IUserLoginProviderUnlinkPolicy, PreventLastLoginProviderUnlinkPolicy>();
         services.TryAddSingleton<IExternalUserProvisioningPolicy, DenyExternalUserProvisioningPolicy>();
+        services.TryAddSingleton<IExternalSignupPolicy, DefaultExternalSignupPolicy>();
         services.TryAddSingleton<IUserSecurityEventRecorder, NoOpSecurityEventRecorder>();
+        services.TryAddSingleton<IAuthEmailAddressSyncService, NoOpAuthEmailAddressSyncService>();
         services.TryAddSingleton<IAuthSessionStore, NullAuthSessionStore>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IExternalAuthProviderValidator, AppleExternalAuthProviderValidator>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IExternalAuthProviderValidator, GoogleExternalAuthProviderValidator>());
         services.TryAddSingleton<IEmailWorkflowService, NullEmailWorkflowService>();
+        services.TryAddSingleton<IAccountLoginMethodWorkflowService, UnsupportedAccountLoginMethodWorkflowService>();
+        services.TryAddSingleton<ISignupEmailVerificationWorkflowService, UnsupportedSignupEmailVerificationWorkflowService>();
+        services.TryAddSingleton<IPasswordlessEmailLoginWorkflowService, UnsupportedPasswordlessEmailLoginWorkflowService>();
+        services.TryAddSingleton<IMobileWebHandoffService, UnsupportedMobileWebHandoffService>();
         services.TryAddSingleton<IRegistrationWorkflowService, UnsupportedRegistrationWorkflowService>();
         services.TryAddSingleton<IMfaSecretStore, UnsupportedMfaSecretStore>();
         services.TryAddSingleton<IMfaChallengeService, UnsupportedMfaChallengeService>();
@@ -53,4 +62,6 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
+
+
 

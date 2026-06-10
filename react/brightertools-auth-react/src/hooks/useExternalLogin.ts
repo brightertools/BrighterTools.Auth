@@ -6,7 +6,7 @@ export const useExternalLogin = () => {
 
   return async (request: ExternalLoginRequest) => {
     const response = await api.loginWithExternalProvider(request);
-    setSession(response.session ?? null);
+    setSession(response.data?.session ?? null);
     return response;
   };
 };

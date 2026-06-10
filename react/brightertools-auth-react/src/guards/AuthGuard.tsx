@@ -6,3 +6,5 @@ export const AuthGuard = ({ children }: PropsWithChildren) => {
   const { session } = useAuth();
   return session ? <>{children}</> : <Navigate to="/login" replace />;
 };
+
+

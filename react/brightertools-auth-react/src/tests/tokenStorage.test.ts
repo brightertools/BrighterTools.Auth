@@ -8,7 +8,7 @@ describe("tokenStorage", () => {
       accessToken: "a",
       refreshToken: "r",
       expiresAtUtc: "2026-03-16T09:00:00Z",
-      provider: "password",
+      provider: "Password",
       user: { id: "1", subjectId: "1" },
       onboarding: { required: false, status: "complete" }
     });
@@ -19,3 +19,5 @@ describe("tokenStorage", () => {
     expect(storage.get()).toBeNull();
   });
 });
+
+

@@ -9,3 +9,5 @@ export interface UseReCaptchaEnterpriseResult {
     loaded: boolean;
     generateToken: (action: string) => Promise<string>;
 }
+
+
