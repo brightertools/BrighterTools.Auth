@@ -257,6 +257,30 @@ public sealed class DefaultAuthOrchestratorTests
             var registrationWorkflow = new FakeRegistrationWorkflowService();
             var emailWorkflow = new FakeEmailWorkflowService();
             var refreshTokenStore = new FakeRefreshTokenStore();
+            var authOptions = Microsoft.Extensions.Options.Options.Create(new BrighterToolsAuthOptions
+            {
+                Providers = new ProviderOptions
+                {
+                    EnabledProviders = new HashSet<AuthProviderType>
+                    {
+                        AuthProviderType.Password,
+                        AuthProviderType.Google
+                    }
+                },
+                Mfa = new MfaOptions
+                {
+                    Enabled = true,
+                    RecoveryCodeCount = 8
+                },
+                Onboarding = new OnboardingOptions
+                {
+                    Enabled = true
+                },
+                PasswordMigration = new PasswordMigrationOptions
+                {
+                    TransparentLegacyUpgradeEnabled = true
+                }
+            });
 
             var orchestrator = new DefaultAuthOrchestrator(
                 userLookup,
@@ -269,6 +293,7 @@ public sealed class DefaultAuthOrchestratorTests
                 [new FakeExternalValidator()],
                 new FakeExternalLoginStore(),
                 new FakeExternalUserProvisioningPolicy(true),
+                new DefaultExternalSignupPolicy(authOptions),
                 new FakeJwtPayloadBuilder(),
                 new FakeTokenIssuer(),
                 refreshTokenStore,
@@ -277,36 +302,16 @@ public sealed class DefaultAuthOrchestratorTests
                 new FakeOnboardingEvaluator(onboarding ?? OnboardingState.NotRequired()),
                 new FakeOnboardingCompletionService(),
                 emailWorkflow,
+                new UnsupportedAccountLoginMethodWorkflowService(),
+                new UnsupportedPasswordlessEmailLoginWorkflowService(),
                 new UnsupportedMfaSecretStore(),
                 new FakeMfaChallengeService(mfaChallengeShouldSucceed),
                 new FakeRecoveryCodeService(recoveryCodeShouldSucceed),
                 new FakeProviderPolicy(providerPolicyAllowed),
+                new PreventLastLoginProviderUnlinkPolicy(),
                 new NoOpSecurityEventRecorder(),
                 new FixedClock(),
-                Microsoft.Extensions.Options.Options.Create(new BrighterToolsAuthOptions
-                {
-                    Providers = new ProviderOptions
-                    {
-                        EnabledProviders = new HashSet<AuthProviderType>
-                        {
-                            AuthProviderType.Password,
-                            AuthProviderType.Google
-                        }
-                    },
-                    Mfa = new MfaOptions
-                    {
-                        Enabled = true,
-                        RecoveryCodeCount = 8
-                    },
-                    Onboarding = new OnboardingOptions
-                    {
-                        Enabled = true
-                    },
-                    PasswordMigration = new PasswordMigrationOptions
-                    {
-                        TransparentLegacyUpgradeEnabled = true
-                    }
-                }));
+                authOptions);
 
             return new TestHarness
             {
