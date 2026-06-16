@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { AuthProviderButton } from "./AuthProviderButton";
 import { EmailVerificationField } from "./EmailVerificationField";
 import { GoogleCredentialButton } from "./GoogleCredentialButton";
 import { PasswordField } from "./PasswordField";
 import { isPasswordValid, PasswordRulesChecklist } from "./PasswordRulesChecklist";
-import type { AccountLoginMethods, AuthProviderType, EmailChallengeDeliveryMode, LinkedProvider } from "../types/auth";
+import type { AccountLoginMethods, AuthProviderType, EmailAddressCandidate, EmailChallengeDeliveryMode, LinkedProvider } from "../types/auth";
 
 const providerLabel = (provider: AuthProviderType) => {
   if (provider === "Password") return "Email / Password";
@@ -32,13 +32,19 @@ export interface AccountLoginMethodsPanelProps {
   busyAction?: string | null;
   emailChallengeId?: string | null;
   verificationCode?: string;
+  notificationEmailChallengeId?: string | null;
+  notificationVerificationCode?: string;
   passwordSetupEmailVerified?: boolean;
   minimumPasswordLength?: number;
   onVerificationCodeChange?: (code: string) => void;
   onClearEmailVerification?: () => void;
+  onNotificationVerificationCodeChange?: (code: string) => void;
+  onClearNotificationEmailVerification?: () => void;
   onRefresh?: () => Promise<void> | void;
   onRequestLoginEmailChange: (email: string, deliveryMode: EmailChallengeDeliveryMode) => Promise<void> | void;
   onVerifyLoginEmailCode: () => Promise<void> | void;
+  onRequestNotificationEmailChange: (email: string, deliveryMode: EmailChallengeDeliveryMode) => Promise<void> | void;
+  onVerifyNotificationEmailCode: () => Promise<void> | void;
   onRequestPasswordSetup: () => Promise<void> | void;
   onCompletePasswordSetup?: (request: CompletePasswordSetupInput) => Promise<void> | void;
   onChangePassword?: (request: ChangePasswordInput) => Promise<void> | void;
@@ -49,14 +55,24 @@ export interface AccountLoginMethodsPanelProps {
   onError?: (message: string) => void;
 }
 
-export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled, busyProvider, busyAction, emailChallengeId, verificationCode = "", passwordSetupEmailVerified = false, minimumPasswordLength = 8, onVerificationCodeChange, onClearEmailVerification, onRequestLoginEmailChange, onVerifyLoginEmailCode, onCompletePasswordSetup, onChangePassword, onRemovePasswordLogin, onGoogleCredential, onAppleClick, onUnlinkProvider, onError }: AccountLoginMethodsPanelProps) {
+const candidateLabel = (candidate: EmailAddressCandidate) => {
+  const source = candidate.sourceProvider ?? candidate.source;
+  return source ? `${candidate.email} (${source})` : candidate.email;
+};
+
+export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled, busyProvider, busyAction, emailChallengeId, verificationCode = "", notificationEmailChallengeId, notificationVerificationCode = "", passwordSetupEmailVerified = false, minimumPasswordLength = 8, onVerificationCodeChange, onClearEmailVerification, onNotificationVerificationCodeChange, onClearNotificationEmailVerification, onRequestLoginEmailChange, onVerifyLoginEmailCode, onRequestNotificationEmailChange, onVerifyNotificationEmailCode, onCompletePasswordSetup, onChangePassword, onRemovePasswordLogin, onGoogleCredential, onAppleClick, onUnlinkProvider, onError }: AccountLoginMethodsPanelProps) {
   const providers = details?.providers ?? [];
-  const firstProviderEmail = useMemo(() => providers.find(provider => provider.email)?.email ?? "", [providers]);
-  const suggestedEmail = details?.email || firstProviderEmail;
+  const candidates = details?.notificationEmailCandidates ?? [];
+  const firstProviderEmail = useMemo(() => providers.find(provider => provider.email && !provider.email.endsWith("@privaterelay.appleid.com"))?.email ?? "", [providers]);
+  const recommendedNotificationEmail = details?.recommendedNotificationEmail ?? candidates.find(x => x.canUseForNotifications)?.email ?? "";
+  const suggestedEmail = details?.primaryEmailIsPrivateRelay ? (recommendedNotificationEmail || firstProviderEmail) : (details?.email || recommendedNotificationEmail || firstProviderEmail);
+  const suggestedNotificationEmail = details?.notificationEmail || recommendedNotificationEmail || suggestedEmail;
   const [email, setEmail] = useState(suggestedEmail);
+  const [notificationEmail, setNotificationEmail] = useState(suggestedNotificationEmail);
   const [setupPassword, setSetupPassword] = useState("");
   const [setupConfirmPassword, setSetupConfirmPassword] = useState("");
   const [setupError, setSetupError] = useState("");
+  const [notificationError, setNotificationError] = useState("");
   const [editingLoginEmail, setEditingLoginEmail] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showRemovePasswordModal, setShowRemovePasswordModal] = useState(false);
@@ -72,22 +88,32 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
   const usingPrivateRelayEmail = !!details?.primaryEmailIsPrivateRelay && emailMatchesAccountLogin;
   const passwordLoginEmailVerified = hasPasswordLogin && !editingLoginEmail && !usingPrivateRelayEmail && !!details?.emailVerified && emailMatchesAccountLogin;
   const setupEmailVerified = !hasPasswordLogin && !editingLoginEmail && !usingPrivateRelayEmail && (passwordSetupEmailVerified || (!!details?.emailVerified && emailMatchesAccountLogin));
+  const notificationEmailVerified = !!details?.notificationEmailVerified && !!details.notificationEmail && details.notificationEmail.toLowerCase() === notificationEmail.trim().toLowerCase();
   const setupPasswordValid = isPasswordValid(setupPassword, setupConfirmPassword, minimumPasswordLength);
   const changePasswordValid = currentPassword.length > 0 && isPasswordValid(newPassword, confirmNewPassword, minimumPasswordLength);
   const canSavePasswordSetup = setupEmailVerified && setupPasswordValid;
   const emailChallengeActive = !!emailChallengeId;
+  const notificationChallengeActive = !!notificationEmailChallengeId;
 
   useEffect(() => {
     setEmail(suggestedEmail);
+    setNotificationEmail(suggestedNotificationEmail);
     setSetupError("");
+    setNotificationError("");
     setEditingLoginEmail(false);
-  }, [suggestedEmail]);
+  }, [suggestedEmail, suggestedNotificationEmail]);
 
   const clearEmailVerification = () => {
     setSetupError("");
     setEditingLoginEmail(true);
     onVerificationCodeChange?.("");
     onClearEmailVerification?.();
+  };
+
+  const clearNotificationEmailVerification = () => {
+    setNotificationError("");
+    onNotificationVerificationCodeChange?.("");
+    onClearNotificationEmailVerification?.();
   };
 
   const useVerifiedLoginEmail = () => {
@@ -107,6 +133,15 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
     }
   };
 
+  const updateNotificationEmail = (value: string) => {
+    setNotificationEmail(value);
+    setNotificationError("");
+    if (notificationEmailChallengeId) {
+      onNotificationVerificationCodeChange?.("");
+      onClearNotificationEmailVerification?.();
+    }
+  };
+
   const requestEmailVerification = async (value: string) => {
     const trimmed = value.trim();
     if (!isEmail(trimmed)) {
@@ -116,6 +151,17 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
 
     setSetupError("");
     await onRequestLoginEmailChange(trimmed, "CodeAndLink");
+  };
+
+  const requestNotificationEmailVerification = async (value: string) => {
+    const trimmed = value.trim();
+    if (!isEmail(trimmed)) {
+      setNotificationError("Please enter a valid email address.");
+      return;
+    }
+
+    setNotificationError("");
+    await onRequestNotificationEmailChange(trimmed, "CodeAndLink");
   };
 
   const savePasswordSetup = async () => {
@@ -158,27 +204,69 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
     setShowRemovePasswordModal(false);
   };
 
+  const showNotificationEmailSetup = !!details?.requiresNotificationEmailSetup || !!details?.notificationEmail || candidates.length > 0;
+
   return (
     <div className="bt-auth-account-login-methods">
-      {!hasPasswordLogin && (
+      {showNotificationEmailSetup && (
         <section className="border rounded-3 p-3 mb-4">
           {details?.requiresNotificationEmailSetup && (
             <div className="alert alert-warning py-2">
-              <strong>Notification email required.</strong> You chose to hide your Apple ID email address. Please verify an email address below so we can send important account notifications.
+              <strong>Notification email required.</strong> You chose to hide your Apple ID email address. Please verify an email address so important account notifications do not go to a private relay address.
             </div>
           )}
-          {details?.notificationEmail && (
+          {details?.notificationEmail && !details.requiresNotificationEmailSetup && (
             <div className="alert alert-success py-2 small">
               Notification email: <strong>{details.notificationEmail}</strong>
             </div>
           )}
           <div className="d-flex flex-wrap justify-content-between gap-2 mb-3">
             <div>
+              <h2 className="h6 mb-1">Notification email</h2>
+              <p className="small text-muted mb-0">Used for important account notifications. It can be different from your sign-in provider email.</p>
+            </div>
+            {notificationEmailVerified ? <span className="badge text-bg-success align-self-start">Verified</span> : <span className="badge text-bg-warning align-self-start">Needs verification</span>}
+          </div>
+          {candidates.length > 0 && (
+            <div className="mb-3">
+              <div className="small fw-semibold mb-2">Suggested verified emails</div>
+              <div className="d-flex flex-wrap gap-2">
+                {candidates.filter(candidate => candidate.canUseForNotifications).map(candidate => (
+                  <button key={candidate.email} type="button" className="btn btn-outline-secondary btn-sm" onClick={() => updateNotificationEmail(candidate.email)}>
+                    {candidateLabel(candidate)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {notificationError && <div className="alert alert-danger py-2">{notificationError}</div>}
+          <label className="form-label">Notification email address</label>
+          <EmailVerificationField
+            email={notificationEmail}
+            verified={notificationEmailVerified}
+            challengeActive={notificationChallengeActive && !notificationEmailVerified}
+            verificationCode={notificationVerificationCode}
+            busySending={busyAction === "notification-email"}
+            busyVerifying={busyAction === "verify-notification-code"}
+            successMessage={notificationChallengeActive && !notificationEmailVerified ? "Enter the code we sent to this email address." : undefined}
+            errorMessage={notificationError && !isEmail(notificationEmail) ? notificationError : undefined}
+            onEmailChange={updateNotificationEmail}
+            onRequestVerification={requestNotificationEmailVerification}
+            onVerificationCodeChange={code => onNotificationVerificationCodeChange?.(code)}
+            onVerifyCode={onVerifyNotificationEmailCode}
+            onChangeEmail={clearNotificationEmailVerification}
+            onResend={() => requestNotificationEmailVerification(notificationEmail)}
+          />
+        </section>
+      )}
+
+      {!hasPasswordLogin && (
+        <section className="border rounded-3 p-3 mb-4">
+          <div className="d-flex flex-wrap justify-content-between gap-2 mb-3">
+            <div>
               <h2 className="h6 mb-1">Set up email/password login</h2>
-              <p className="small text-muted mb-0">
-                Verify the email you want to use for notifications. You can also choose a password to add email/password login alongside Google, Apple, or future mobile sign-in methods.
-              </p>
-              {suggestedEmail && <p className="small text-muted mt-2 mb-0">Suggested from your connected account: {suggestedEmail}</p>}
+              <p className="small text-muted mb-0">Verify the email you want to use for password login, then choose a password.</p>
+              {suggestedEmail && <p className="small text-muted mt-2 mb-0">Suggested from your account: {suggestedEmail}</p>}
             </div>
             <span className="badge text-bg-secondary align-self-start">Not set up</span>
           </div>
@@ -209,8 +297,6 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
             </button>
           )}
 
-          {setupEmailVerified && <div className="alert alert-success py-2 small mt-3">Email verified. We can use this address for important account notifications. Choose a password if you also want to enable email/password login.</div>}
-
           <div className="row g-3 mt-1">
             <div className="col-md-6">
               <PasswordField label="Password" value={setupPassword} autoComplete="new-password" onChange={setSetupPassword} />
@@ -230,22 +316,12 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
       {hasPasswordLogin && (
         <>
           <section className="border rounded-3 p-3 mb-4">
-            {details?.requiresNotificationEmailSetup && (
-              <div className="alert alert-warning py-2">
-                <strong>Notification email required.</strong> You chose to hide your Apple ID email address. Please verify an email address below so we can send important account notifications.
-              </div>
-            )}
-            {details?.notificationEmail && (
-              <div className="alert alert-success py-2 small">
-                Notification email: <strong>{details.notificationEmail}</strong>
-              </div>
-            )}
             <div className="d-flex flex-wrap justify-content-between gap-2 mb-3">
               <div>
                 <h2 className="h6 mb-1">Login email</h2>
                 <p className="small text-muted mb-0">Used for email/password login, password reset, and passwordless sign-in codes.</p>
               </div>
-              {usingPrivateRelayEmail ? <span className="badge text-bg-warning align-self-start">Notification email required</span> : passwordLoginEmailVerified ? <span className="badge text-bg-success align-self-start">Verified</span> : <span className="badge text-bg-warning align-self-start">Needs verification</span>}
+              {usingPrivateRelayEmail ? <span className="badge text-bg-warning align-self-start">Private relay</span> : passwordLoginEmailVerified ? <span className="badge text-bg-success align-self-start">Verified</span> : <span className="badge text-bg-warning align-self-start">Needs verification</span>}
             </div>
             {details?.pendingEmail && <div className="alert alert-warning py-2 small">Pending email verification: {details.pendingEmail}</div>}
             <label className="form-label">Email address</label>
@@ -265,11 +341,6 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
               onChangeEmail={clearEmailVerification}
               onResend={() => requestEmailVerification(email)}
             />
-            {editingLoginEmail && details?.emailVerified && details.email && (
-              <button type="button" className="btn btn-link btn-sm px-0 mt-1 text-decoration-none" onClick={useVerifiedLoginEmail}>
-                use {details.email}
-              </button>
-            )}
           </section>
 
           <section className="border rounded-3 p-3 mb-4">
@@ -312,12 +383,8 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
             )}
             <div className="border-top mt-4 pt-3">
               <h3 className="h6 mb-1">Remove email/password login</h3>
-              <p className="small text-muted mb-2">
-                Your verified email remains on your account, but you will no longer be able to sign in with a password.
-              </p>
-              {!canRemovePasswordLogin && (
-                <p className="small text-warning mb-2">Connect Google or Apple before removing your password login.</p>
-              )}
+              <p className="small text-muted mb-2">Your verified email remains on your account, but you will no longer be able to sign in with a password.</p>
+              {!canRemovePasswordLogin && <p className="small text-warning mb-2">Connect Google or Apple before removing your password login.</p>}
               <button type="button" className="btn btn-outline-danger btn-sm" disabled={busyAction === "remove-password" || !canRemovePasswordLogin} onClick={() => setShowRemovePasswordModal(true)}>
                 {busyAction === "remove-password" ? "Removing..." : "Remove email/password login"}
               </button>
@@ -359,9 +426,7 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
             <div className="border rounded-3 p-3 h-100">
               <h3 className="h6">Apple</h3>
               <p className="small text-muted">{hasApple ? "Apple is connected." : "Connect Sign in with Apple."}</p>
-              {!hasApple && onAppleClick && (
-                <AuthProviderButton variant="apple" label="Connect Apple" busyLabel="Opening Apple..." busy={busyProvider === "Apple"} onClick={() => void onAppleClick()} />
-              )}
+              {!hasApple && onAppleClick && <AuthProviderButton variant="apple" label="Connect Apple" busyLabel="Opening Apple..." busy={busyProvider === "Apple"} onClick={() => void onAppleClick()} />}
             </div>
           </div>
         )}
@@ -378,17 +443,11 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
               </div>
               <div className="modal-body">
                 <p className="text-danger fw-semibold mb-2">This removes email/password login from your account.</p>
-                <p className="mb-2">
-                  Your current session will stay active, but next time you will need to sign in with another connected provider.
-                </p>
-                <p className="small text-muted mb-0">
-                  Your verified email address will remain on your account for notifications, passwordless email sign-in, and account records.
-                </p>
+                <p className="mb-2">Your current session will stay active, but next time you will need to sign in with another connected provider.</p>
+                <p className="small text-muted mb-0">Your verified email address will remain on your account for notifications, passwordless email sign-in, and account records.</p>
               </div>
               <div className="modal-footer justify-content-between">
-                <button type="button" className="btn btn-outline-secondary" disabled={busyAction === "remove-password"} onClick={() => setShowRemovePasswordModal(false)}>
-                  Cancel
-                </button>
+                <button type="button" className="btn btn-outline-secondary" disabled={busyAction === "remove-password"} onClick={() => setShowRemovePasswordModal(false)}>Cancel</button>
                 <button type="button" className="btn btn-danger" disabled={busyAction === "remove-password"} onClick={() => void removePasswordLogin()}>
                   {busyAction === "remove-password" ? "Removing..." : "Remove email login"}
                 </button>
@@ -400,4 +459,3 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
     </div>
   );
 }
-

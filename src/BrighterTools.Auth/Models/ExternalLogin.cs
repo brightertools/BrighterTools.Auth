@@ -1,4 +1,4 @@
-﻿namespace BrighterTools.Auth.Models;
+namespace BrighterTools.Auth.Models;
 
 /// <summary>
 /// Represents the external Login.
@@ -18,8 +18,13 @@ public sealed class ExternalLogin
     /// </summary>
     public string? Email { get; init; }
     /// <summary>
+    /// Gets or sets a value indicating whether the provider verified the email.
+    /// </summary>
+    public bool EmailVerified { get; init; }
+    /// <summary>
     /// Gets or sets the linked At Utc.
     /// </summary>
     public DateTimeOffset LinkedAtUtc { get; init; }
 }
+
 

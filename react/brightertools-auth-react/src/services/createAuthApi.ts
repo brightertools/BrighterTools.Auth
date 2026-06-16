@@ -1,8 +1,9 @@
-﻿import type {
+import type {
   AccountLoginMethodsResponse,
   AuthResponse,
   BeginEmailChallengeResponse,
   BeginLoginEmailChangeRequest,
+  BeginNotificationEmailChangeRequest,
   BeginSignupEmailVerificationRequest,
   BeginSignupEmailVerificationResponse,
   BeginPasswordlessEmailLoginRequest,
@@ -25,6 +26,8 @@
   TenantScopedRequest,
   VerifyLoginEmailChangeCodeRequest,
   VerifyLoginEmailChangeResponse,
+  VerifyNotificationEmailChangeCodeRequest,
+  VerifyNotificationEmailChangeResponse,
   VerifySignupEmailVerificationCodeRequest,
   VerifySignupEmailVerificationCodeResponse
 } from "../types/api";
@@ -55,6 +58,9 @@ export interface AuthApiEndpoints {
   beginLoginEmailChange: string;
   verifyLoginEmailChangeCode: string;
   confirmLoginEmailChange: string;
+  beginNotificationEmailChange: string;
+  verifyNotificationEmailChangeCode: string;
+  confirmNotificationEmailChange: string;
   beginPasswordSetup: string;
   completePasswordSetup: string;
   changePassword: string;
@@ -85,6 +91,9 @@ export interface AuthApiClient {
   beginLoginEmailChange(request: BeginLoginEmailChangeRequest): Promise<ApiEnvelope<BeginEmailChallengeResponse>>;
   verifyLoginEmailChangeCode(request: VerifyLoginEmailChangeCodeRequest): Promise<ApiEnvelope<VerifyLoginEmailChangeResponse>>;
   confirmLoginEmailChange(token: string): Promise<ApiEnvelope<VerifyLoginEmailChangeResponse>>;
+  beginNotificationEmailChange(request: BeginNotificationEmailChangeRequest): Promise<ApiEnvelope<BeginEmailChallengeResponse>>;
+  verifyNotificationEmailChangeCode(request: VerifyNotificationEmailChangeCodeRequest): Promise<ApiEnvelope<VerifyNotificationEmailChangeResponse>>;
+  confirmNotificationEmailChange(token: string): Promise<ApiEnvelope<VerifyNotificationEmailChangeResponse>>;
   beginPasswordSetup(): Promise<ApiEnvelope<BeginPasswordSetupResponse>>;
   completePasswordSetup(request: CompletePasswordSetupRequest): Promise<ApiEnvelope<CompletePasswordSetupResponse>>;
   changePassword(request: ChangePasswordRequest): Promise<ApiEnvelope<ChangePasswordResponse>>;
@@ -125,6 +134,9 @@ const defaultEndpoints = (apiPrefix: string): AuthApiEndpoints => ({
   beginLoginEmailChange: `${apiPrefix}/account/login-email/change`,
   verifyLoginEmailChangeCode: `${apiPrefix}/account/login-email/verify-code`,
   confirmLoginEmailChange: `${apiPrefix}/authentication/login-email/confirm`,
+  beginNotificationEmailChange: `${apiPrefix}/account/notification-email/change`,
+  verifyNotificationEmailChangeCode: `${apiPrefix}/account/notification-email/verify-code`,
+  confirmNotificationEmailChange: `${apiPrefix}/authentication/notification-email/confirm`,
   beginPasswordSetup: `${apiPrefix}/account/password/setup`,
   completePasswordSetup: `${apiPrefix}/account/password/setup/complete`,
   changePassword: `${apiPrefix}/account/password/change`,
@@ -135,6 +147,18 @@ const defaultEndpoints = (apiPrefix: string): AuthApiEndpoints => ({
   beginPasswordlessEmailLogin: `${apiPrefix}/authentication/passwordless-email/begin`,
   completePasswordlessEmailLogin: `${apiPrefix}/authentication/passwordless-email/complete`
 });
+
+const defaultRequestErrorMessage = "There was an error processing the request.";
+
+const parseResponseBody = (text: string): unknown => {
+  if (!text) return undefined;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+};
 
 export const createAuthApi = (optionsOrBaseUrl: CreateAuthApiOptions | string = {}): AuthApiClient => {
   const options: CreateAuthApiOptions = typeof optionsOrBaseUrl === "string" ? { baseUrl: optionsOrBaseUrl } : optionsOrBaseUrl;
@@ -147,29 +171,40 @@ export const createAuthApi = (optionsOrBaseUrl: CreateAuthApiOptions | string = 
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const response = await fetcher(`${getBaseUrl()}${path}`, {
-      method: "POST",
-      headers,
-      credentials: "include",
-      body: JSON.stringify(body ?? {})
-    });
+    let response: Response;
+    try {
+      response = await fetcher(`${getBaseUrl()}${path}`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify(body ?? {})
+      });
+    } catch {
+      return {
+        success: false,
+        message: defaultRequestErrorMessage
+      };
+    }
 
     if (response.status === 401) {
       options.onUnauthorized?.();
     }
 
     const text = await response.text();
-    const parsed = text ? JSON.parse(text) : undefined;
+    const parsed = parseResponseBody(text) as ApiEnvelope<TResponse> | undefined;
 
     if (!response.ok) {
       return {
         success: false,
-        message: parsed?.message ?? `Auth API request failed: ${response.status}`,
+        message: response.status >= 500 ? defaultRequestErrorMessage : parsed?.message ?? defaultRequestErrorMessage,
         data: parsed?.data
       };
     }
 
-    return parsed as ApiEnvelope<TResponse>;
+    return parsed ?? {
+      success: false,
+      message: defaultRequestErrorMessage
+    };
   };
 
   return {
@@ -178,7 +213,7 @@ export const createAuthApi = (optionsOrBaseUrl: CreateAuthApiOptions | string = 
     signupWithPassword: request => post(endpoints.passwordSignup, request),
     beginSignupEmailVerification: request => post(endpoints.beginSignupEmailVerification, request),
     verifySignupEmailVerificationCode: request => post(endpoints.verifySignupEmailVerificationCode, request),
-    signupWithExternalProvider: request => post(endpoints.externalSignup, request),
+    signupWithExternalProvider: request => post(endpoints.externalSignup, { ...request, metadata: request.fields ?? {} }),
     refresh: request => post(endpoints.refresh, request),
     logout: request => post(endpoints.logout, request ?? {}),
     currentSession: () => post(endpoints.currentSession, {}),
@@ -191,6 +226,9 @@ export const createAuthApi = (optionsOrBaseUrl: CreateAuthApiOptions | string = 
     beginLoginEmailChange: request => post(endpoints.beginLoginEmailChange, request),
     verifyLoginEmailChangeCode: request => post(endpoints.verifyLoginEmailChangeCode, request),
     confirmLoginEmailChange: token => post(endpoints.confirmLoginEmailChange, { token }),
+    beginNotificationEmailChange: request => post(endpoints.beginNotificationEmailChange, request),
+    verifyNotificationEmailChangeCode: request => post(endpoints.verifyNotificationEmailChangeCode, request),
+    confirmNotificationEmailChange: token => post(endpoints.confirmNotificationEmailChange, { token }),
     beginPasswordSetup: () => post(endpoints.beginPasswordSetup, {}),
     completePasswordSetup: request => post(endpoints.completePasswordSetup, request),
     changePassword: request => post(endpoints.changePassword, request),
@@ -202,6 +240,3 @@ export const createAuthApi = (optionsOrBaseUrl: CreateAuthApiOptions | string = 
     completePasswordlessEmailLogin: request => post(endpoints.completePasswordlessEmailLogin, request)
   };
 };
-
-
-

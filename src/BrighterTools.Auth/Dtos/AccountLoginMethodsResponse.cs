@@ -1,4 +1,4 @@
-using BrighterTools.Auth.Models;
+﻿using BrighterTools.Auth.Models;
 
 namespace BrighterTools.Auth.Dtos;
 
@@ -10,6 +10,8 @@ public sealed class AccountLoginMethodsResponse
     public bool HasPassword { get; init; }
     public string? NotificationEmail { get; init; }
     public bool NotificationEmailVerified { get; init; }
+    public string? RecommendedNotificationEmail { get; init; }
+    public IReadOnlyList<AuthEmailAddressCandidate> NotificationEmailCandidates { get; init; } = [];
     public bool PrimaryEmailIsPrivateRelay { get; init; }
     public bool RequiresNotificationEmailSetup { get; init; }
     public IReadOnlyList<ExternalLogin> Providers { get; init; } = [];

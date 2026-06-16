@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 export interface EmailVerificationFieldProps {
   email: string;
@@ -32,26 +32,43 @@ function isValidEmail(email: string) {
 
 export function EmailVerificationField({ email, verified, challengeActive = false, verificationCode = "", busySending = false, busyVerifying = false, disabled = false, emailPlaceholder = "Enter your email address", codePlaceholder = "Enter verification code", sendLabel = "Verify email", sendingLabel = "Sending...", verifyLabel = "Verify code", verifyingLabel = "Verifying...", verifiedLabel = "Verified", successMessage, errorMessage, autoSubmitCodeLength = 6, onEmailChange, onRequestVerification, onVerificationCodeChange, onVerifyCode, onChangeEmail, onResend }: EmailVerificationFieldProps) {
   const lastAutoSubmittedCodeRef = useRef("");
+  const verifyingRef = useRef(false);
   const isBusy = busySending || busyVerifying;
   const trimmedEmail = email.trim();
   const canSend = !disabled && !isBusy && isValidEmail(trimmedEmail);
+  const normalizeCode = (value: string) => value.replace(/\D/g, "").slice(0, autoSubmitCodeLength);
+  const normalizedVerificationCode = normalizeCode(verificationCode);
+
+  const verifyCode = async () => {
+    if (verifyingRef.current || busyVerifying || disabled || verified) return;
+    if (normalizedVerificationCode.length !== autoSubmitCodeLength) return;
+
+    verifyingRef.current = true;
+    try {
+      await onVerifyCode();
+    } finally {
+      verifyingRef.current = false;
+    }
+  };
 
   useEffect(() => {
-    if (!challengeActive || verified || busyVerifying || verificationCode.length < autoSubmitCodeLength) return;
-    if (verificationCode === lastAutoSubmittedCodeRef.current) return;
+    if (!challengeActive || verified || busyVerifying || normalizedVerificationCode.length < autoSubmitCodeLength) return;
+    if (normalizedVerificationCode === lastAutoSubmittedCodeRef.current) return;
 
-    lastAutoSubmittedCodeRef.current = verificationCode;
-    void onVerifyCode();
-  }, [autoSubmitCodeLength, busyVerifying, challengeActive, onVerifyCode, verificationCode, verified]);
+    lastAutoSubmittedCodeRef.current = normalizedVerificationCode;
+    void verifyCode();
+  }, [autoSubmitCodeLength, busyVerifying, challengeActive, normalizedVerificationCode, verified]);
 
   const changeEmail = () => {
     lastAutoSubmittedCodeRef.current = "";
+    verifyingRef.current = false;
     onVerificationCodeChange("");
     onChangeEmail?.();
   };
 
   const sendVerification = async () => {
     lastAutoSubmittedCodeRef.current = "";
+    verifyingRef.current = false;
     await onRequestVerification(trimmedEmail);
   };
 
@@ -60,9 +77,9 @@ export function EmailVerificationField({ email, verified, challengeActive = fals
       <div className="bt-auth-email-verification-field">
         <div className="input-group">
           <input type="email" className="form-control bg-light" value={email} readOnly aria-label="Verified email address" />
-          <span className="input-group-text bg-success text-white fw-semibold">✓ {verifiedLabel}</span>
+          <span className="input-group-text bg-success text-white fw-semibold">{verifiedLabel}</span>
         </div>
-        <button type="button" className="btn btn-link btn-sm px-0 text-decoration-none" disabled={disabled || isBusy} onClick={changeEmail}>
+        <button type="button" className="btn btn-link btn-sm px-0 text-decoration-none text-primary" disabled={disabled || isBusy} onClick={changeEmail}>
           change email address
         </button>
       </div>
@@ -98,15 +115,18 @@ export function EmailVerificationField({ email, verified, challengeActive = fals
               value={verificationCode}
               placeholder={codePlaceholder}
               disabled={disabled || busyVerifying}
-              onChange={event => onVerificationCodeChange(event.target.value.trim())}
+              onChange={event => onVerificationCodeChange(normalizeCode(event.target.value))}
               onPaste={event => {
-                const pasted = event.clipboardData.getData("text").trim();
-                if (pasted.length >= autoSubmitCodeLength) onVerificationCodeChange(pasted);
+                const pasted = normalizeCode(event.clipboardData.getData("text"));
+                if (pasted.length >= autoSubmitCodeLength) {
+                  event.preventDefault();
+                  onVerificationCodeChange(pasted);
+                }
               }}
             />
           </div>
           <div className="col-sm-auto" style={{ minWidth: 150 }}>
-            <button type="button" className="btn btn-outline-primary w-100" disabled={disabled || busyVerifying || verificationCode.trim().length === 0} onClick={() => void onVerifyCode()}>
+            <button type="button" className="btn btn-outline-primary text-primary w-100" disabled={disabled || busyVerifying || normalizedVerificationCode.length !== autoSubmitCodeLength} onClick={() => void verifyCode()}>
               {busyVerifying ? verifyingLabel : verifyLabel}
             </button>
           </div>
@@ -114,14 +134,14 @@ export function EmailVerificationField({ email, verified, challengeActive = fals
       )}
 
       {errorMessage && <div className="invalid-feedback d-block">{errorMessage}</div>}
-      {successMessage && !verified && <div className="form-text text-info">{successMessage}</div>}
+      {successMessage && !verified && <div className="form-text text-info fw-medium">{successMessage}</div>}
 
       {challengeActive && (
         <div className="d-flex flex-wrap gap-2 mt-1 small">
-          <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none" disabled={disabled || isBusy} onClick={changeEmail}>
+          <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none text-primary" disabled={disabled || isBusy} onClick={changeEmail}>
             change email
           </button>
-          <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none" disabled={disabled || busySending} onClick={() => void (onResend ? onResend() : sendVerification())}>
+          <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none text-primary" disabled={disabled || busySending} onClick={() => void (onResend ? onResend() : sendVerification())}>
             re-send code
           </button>
         </div>

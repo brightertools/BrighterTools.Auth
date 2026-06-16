@@ -11,13 +11,16 @@ export interface AccountLoginMethodsManagerProps {
   appleRedirectPath?: string;
   minimumPasswordLength?: number;
   loginEmailReturnUrl?: string;
+  notificationEmailReturnUrl?: string;
 }
 
-export function AccountLoginMethodsManager({ googleClientId, appleClientId, appleRedirectPath = "/account", minimumPasswordLength = 8, loginEmailReturnUrl = "/account" }: AccountLoginMethodsManagerProps) {
+export function AccountLoginMethodsManager({ googleClientId, appleClientId, appleRedirectPath = "/account", minimumPasswordLength = 8, loginEmailReturnUrl = "/account", notificationEmailReturnUrl = "/account" }: AccountLoginMethodsManagerProps) {
   const loginMethods = useLoginMethods();
   const [details, setDetails] = useState<AccountLoginMethods | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
   const [challenge, setChallenge] = useState<BeginEmailChallengeResponse | null>(null);
+  const [notificationVerificationCode, setNotificationVerificationCode] = useState("");
+  const [notificationChallenge, setNotificationChallenge] = useState<BeginEmailChallengeResponse | null>(null);
   const [setupEmailVerified, setSetupEmailVerified] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -148,10 +151,65 @@ export function AccountLoginMethodsManager({ googleClientId, appleClientId, appl
     }
   };
 
+  const requestNotificationEmailChange = async (email: string) => {
+    setBusyAction("notification-email");
+    setError("");
+    setMessage("");
+    try {
+      const response = await loginMethods.beginNotificationEmailChange({ email, deliveryMode: "Code", returnUrl: notificationEmailReturnUrl });
+      if (!response.success || !response.data) {
+        setError(response.message ?? "Could not start notification email verification.");
+        return;
+      }
+
+      setNotificationChallenge(response.data);
+      await loadDetails();
+      setMessage(response.data.message ?? "We sent a verification code and link to that email.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start notification email verification.");
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const verifyNotificationEmailCode = async () => {
+    if (!notificationChallenge?.challengeId) {
+      setError("Please request a notification email verification code first.");
+      return;
+    }
+
+    setBusyAction("verify-notification-code");
+    setError("");
+    setMessage("");
+    try {
+      const response = await loginMethods.verifyNotificationEmailChangeCode({ challengeId: notificationChallenge.challengeId, code: notificationVerificationCode });
+      if (!response.success || !response.data) {
+        setError(response.message ?? "Could not verify this code.");
+        return;
+      }
+
+      setNotificationChallenge(null);
+      setNotificationVerificationCode("");
+      await loadDetails();
+      setMessage(response.data.message ?? "Your notification email has been verified.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not verify this code.");
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const clearEmailVerification = () => {
     setChallenge(null);
     setVerificationCode("");
     setSetupEmailVerified(false);
+    setMessage("");
+    setError("");
+  };
+
+  const clearNotificationEmailVerification = () => {
+    setNotificationChallenge(null);
+    setNotificationVerificationCode("");
     setMessage("");
     setError("");
   };
@@ -251,12 +309,18 @@ export function AccountLoginMethodsManager({ googleClientId, appleClientId, appl
         busyAction={busyAction}
         emailChallengeId={challenge?.challengeId}
         verificationCode={verificationCode}
+        notificationEmailChallengeId={notificationChallenge?.challengeId}
+        notificationVerificationCode={notificationVerificationCode}
         passwordSetupEmailVerified={setupEmailVerified}
         minimumPasswordLength={minimumPasswordLength}
         onVerificationCodeChange={setVerificationCode}
         onClearEmailVerification={clearEmailVerification}
+        onNotificationVerificationCodeChange={setNotificationVerificationCode}
+        onClearNotificationEmailVerification={clearNotificationEmailVerification}
         onRequestLoginEmailChange={email => requestEmailChange(email)}
         onVerifyLoginEmailCode={verifyEmailCode}
+        onRequestNotificationEmailChange={email => requestNotificationEmailChange(email)}
+        onVerifyNotificationEmailCode={verifyNotificationEmailCode}
         onRequestPasswordSetup={requestPasswordSetup}
         onCompletePasswordSetup={completePasswordSetup}
         onChangePassword={changePassword}

@@ -42,6 +42,16 @@ export interface LinkedProvider {
   linkedAtUtc: string;
 }
 
+export interface EmailAddressCandidate {
+  email: string;
+  isVerified: boolean;
+  sourceProvider?: AuthProviderType | null;
+  source?: string | null;
+  isPrivateRelay: boolean;
+  canUseForNotifications: boolean;
+  isCurrentNotificationEmail: boolean;
+}
+
 export interface AccountLoginMethods {
   email: string;
   pendingEmail?: string | null;
@@ -49,11 +59,9 @@ export interface AccountLoginMethods {
   hasPassword: boolean;
   notificationEmail?: string | null;
   notificationEmailVerified?: boolean;
+  recommendedNotificationEmail?: string | null;
+  notificationEmailCandidates?: EmailAddressCandidate[];
   primaryEmailIsPrivateRelay?: boolean;
   requiresNotificationEmailSetup?: boolean;
   providers: LinkedProvider[];
 }
-
-
-
-

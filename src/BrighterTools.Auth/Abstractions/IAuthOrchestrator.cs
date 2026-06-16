@@ -113,6 +113,18 @@ public interface IAuthOrchestrator
     /// </summary>
     Task<VerifyLoginEmailChangeResponse> ConfirmLoginEmailChangeAsync(ConfirmLoginEmailChangeRequest request, CancellationToken cancellationToken = default);
     /// <summary>
+    /// Begins changing the user's notification email using a code, link, or both depending on configuration/request.
+    /// </summary>
+    Task<BeginLoginEmailChangeResponse> BeginNotificationEmailChangeAsync(string userId, BeginNotificationEmailChangeRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Verifies a notification email change using an emailed code.
+    /// </summary>
+    Task<VerifyNotificationEmailChangeResponse> VerifyNotificationEmailChangeCodeAsync(string userId, VerifyNotificationEmailChangeCodeRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Verifies a notification email change using an emailed link token.
+    /// </summary>
+    Task<VerifyNotificationEmailChangeResponse> ConfirmNotificationEmailChangeAsync(ConfirmNotificationEmailChangeRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
     /// Begins password setup for an account that may currently rely on an external provider.
     /// </summary>
     Task<BeginPasswordSetupResponse> BeginPasswordSetupAsync(string userId, BeginPasswordSetupRequest request, CancellationToken cancellationToken = default);
@@ -149,6 +161,9 @@ public interface IAuthOrchestrator
     /// </summary>
     Task<CurrentSessionResponse> GetCurrentSessionAsync(string userId, CancellationToken cancellationToken = default);
 }
+
+
+
 
 
 

@@ -41,7 +41,7 @@ export function PasswordField({ id, label, value, className = "", inputClassName
         <input
           id={inputId}
           type={visible ? "text" : "password"}
-          className={inputClassName}
+          className={`${inputClassName} bt-auth-password-input`}
           value={value}
           autoComplete={autoComplete}
           required={required}

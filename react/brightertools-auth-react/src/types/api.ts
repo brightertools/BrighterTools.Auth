@@ -118,9 +118,26 @@ export interface VerifyLoginEmailChangeResponse {
   message?: string | null;
 }
 
+export interface BeginNotificationEmailChangeRequest {
+  email: string;
+  deliveryMode?: EmailChallengeDeliveryMode;
+  returnUrl?: string;
+}
+
+export interface VerifyNotificationEmailChangeCodeRequest {
+  challengeId: string;
+  code: string;
+}
+
+export interface VerifyNotificationEmailChangeResponse {
+  email: string;
+  notificationEmailVerified: boolean;
+  message?: string | null;
+}
+
 export interface BeginPasswordSetupResponse {
-    linkSent: boolean;
-    message?: string | null;
+  linkSent: boolean;
+  message?: string | null;
 }
 
 export interface CompletePasswordSetupRequest {
@@ -166,8 +183,3 @@ export interface CompletePasswordlessEmailLoginRequest {
 export interface OnboardingStatusResponse {
   onboarding: OnboardingState;
 }
-
-
-
-
-

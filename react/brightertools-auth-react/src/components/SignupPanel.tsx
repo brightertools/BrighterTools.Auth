@@ -89,7 +89,7 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
       setSignupChallengeId(response.data.challengeId);
       setSignupEmailVerified(false);
       setSignupVerificationCode("");
-      setSuccessMessage(response.data.message ?? "We sent a verification code to that email address.");
+      setSuccessMessage(response.data.message ?? "A verification code has been sent to your email address.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send a verification code.");
     } finally {
@@ -97,6 +97,10 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
     }
   };
 
+  const requestSignupEmailVerification = async (email: string) => {
+    if (!validateConsent()) return;
+    await beginSignupEmailVerification(email);
+  };
   const verifySignupEmailCode = async () => {
     if (!signupChallengeId) {
       setError("Please request a verification code first.");
@@ -212,9 +216,9 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
   return (
     <div className="bt-auth-signup-panel">
       {serverError && <div className="alert alert-danger py-2">{serverError}</div>}
-      {successMessage && <div className="alert alert-success py-2">{successMessage}</div>}
+      {successMessage && <div className="alert alert-info py-2 small mb-3" role="alert">{successMessage}</div>}
 
-      <div className="border rounded-3 p-3 mb-4 bg-light">
+      <div className="mx-auto w-100 mb-3" style={{ maxWidth: 400 }}>
         <LegalConsentCheckbox
           checked={legalConsentAccepted}
           termsUrl={termsUrl}
@@ -234,9 +238,17 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
       {!showEmailForm && (
         <div className="d-grid gap-3 justify-items-center">
           {googleClientId && (
-            <div className="auth-provider-consent-gate">
+            <div className="auth-provider-consent-gate position-relative w-100" style={{ maxWidth: 400, marginInline: "auto" }}>
               <GoogleCredentialButton clientId={googleClientId} text="signup_with" onCredential={credential => void handleExternalSignup("Google", credential)} onError={setError} />
-              {!legalConsentAccepted && <button type="button" className="auth-provider-consent-overlay" aria-label="Accept the terms and privacy policy before signing up with Google" onClick={validateConsent} />}
+              {!legalConsentAccepted && (
+                <button
+                  type="button"
+                  className="auth-provider-consent-overlay"
+                  aria-label="Accept the terms and privacy policy before signing up with Google"
+                  onClick={validateConsent}
+                  style={{ position: "absolute", inset: 0, zIndex: 2, opacity: 0, border: 0, padding: 0, margin: 0, background: "transparent", cursor: "pointer" }}
+                />
+              )}
             </div>
           )}
           {appleClientId && (
@@ -248,7 +260,7 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
 
       {showEmailForm && (
         <form onSubmit={submitPasswordSignup} noValidate>
-          <button type="button" className="btn btn-link px-0 mb-3" onClick={() => setShowEmailForm(false)}>
+          <button type="button" className="btn btn-link px-0 mb-3 text-primary text-decoration-none fw-semibold" onClick={() => setShowEmailForm(false)}>
             Back to signup options
           </button>
 
@@ -268,11 +280,11 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
                 setSignupEmail(email);
                 if (signupEmailVerified || signupChallengeId) clearSignupEmailVerification();
               }}
-              onRequestVerification={beginSignupEmailVerification}
+              onRequestVerification={requestSignupEmailVerification}
               onVerificationCodeChange={setSignupVerificationCode}
               onVerifyCode={verifySignupEmailCode}
               onChangeEmail={clearSignupEmailVerification}
-              onResend={() => beginSignupEmailVerification(signupEmail)}
+              onResend={() => requestSignupEmailVerification(signupEmail)}
             />
           </div>
 
@@ -291,5 +303,8 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
     </div>
   );
 }
+
+
+
 
 

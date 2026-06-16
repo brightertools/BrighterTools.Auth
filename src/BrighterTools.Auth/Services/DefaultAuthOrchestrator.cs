@@ -502,6 +502,24 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         => _accountLoginMethodWorkflowService.ConfirmLoginEmailChangeAsync(request, cancellationToken);
 
     /// <summary>
+    /// Begins a notification email change challenge.
+    /// </summary>
+    public Task<BeginLoginEmailChangeResponse> BeginNotificationEmailChangeAsync(string userId, BeginNotificationEmailChangeRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.BeginNotificationEmailChangeAsync(userId, request, cancellationToken);
+
+    /// <summary>
+    /// Verifies a notification email change with a code.
+    /// </summary>
+    public Task<VerifyNotificationEmailChangeResponse> VerifyNotificationEmailChangeCodeAsync(string userId, VerifyNotificationEmailChangeCodeRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.VerifyNotificationEmailChangeCodeAsync(userId, request, cancellationToken);
+
+    /// <summary>
+    /// Verifies a notification email change with a link token.
+    /// </summary>
+    public Task<VerifyNotificationEmailChangeResponse> ConfirmNotificationEmailChangeAsync(ConfirmNotificationEmailChangeRequest request, CancellationToken cancellationToken = default)
+        => _accountLoginMethodWorkflowService.ConfirmNotificationEmailChangeAsync(request, cancellationToken);
+
+    /// <summary>
     /// Begins password setup for the supplied user.
     /// </summary>
     public Task<BeginPasswordSetupResponse> BeginPasswordSetupAsync(string userId, BeginPasswordSetupRequest request, CancellationToken cancellationToken = default)
@@ -720,6 +738,8 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         }
     }
 }
+
+
 
 
 

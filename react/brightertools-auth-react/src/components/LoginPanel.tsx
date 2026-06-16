@@ -10,6 +10,13 @@ import { usePasswordlessEmailLogin } from "../hooks/usePasswordlessEmailLogin";
 import type { AuthProviderType } from "../types/auth";
 
 const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
+const defaultRequestErrorMessage = "There was an error processing the request.";
+const invalidLoginMessage = "The email and/or password is incorrect.";
+
+const toPasswordLoginErrorMessage = (err: unknown) => {
+  if (!(err instanceof Error)) return invalidLoginMessage;
+  return err.message === defaultRequestErrorMessage ? defaultRequestErrorMessage : invalidLoginMessage;
+};
 
 export interface LoginPanelProps {
   googleClientId?: string;
@@ -20,18 +27,21 @@ export interface LoginPanelProps {
   passwordlessReturnUrl?: string;
   passwordlessCodeReturnUrl?: string;
   tenantId?: string;
+  allowUsernameOrEmail?: boolean;
+  emailLoginButtonLabel?: string;
   onAuthenticated?: (returnUrl?: string) => void;
   onError?: (message: string) => void;
 }
 
-export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = "/login", appleRedirectOrigin, passwordlessToken, passwordlessReturnUrl = "/dashboard", passwordlessCodeReturnUrl = "/dashboard", tenantId, onAuthenticated, onError }: LoginPanelProps) {
+export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = "/login", appleRedirectOrigin, passwordlessToken, passwordlessReturnUrl = "/dashboard", passwordlessCodeReturnUrl = "/dashboard", tenantId, allowUsernameOrEmail = false, emailLoginButtonLabel, onAuthenticated, onError }: LoginPanelProps) {
   const { login, externalLogin } = useAuth();
   const passwordlessLogin = usePasswordlessEmailLogin();
   const [serverError, setServerError] = useState<string | null>(null);
   const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [showPasswordlessEmailForm, setShowPasswordlessEmailForm] = useState(false);
   const [busyProvider, setBusyProvider] = useState<AuthProviderType | null>(null);
-  const [email, setEmail] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,7 +88,12 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
     setServerError(null);
     setServerMessage(null);
 
-    if (!isEmail(email)) {
+    if (!loginIdentifier.trim()) {
+      setFormError(allowUsernameOrEmail ? "Enter your username or email address." : "Enter your email address.");
+      return;
+    }
+
+    if (!allowUsernameOrEmail && !isEmail(loginIdentifier)) {
       setFormError("Enter a valid email address.");
       return;
     }
@@ -90,10 +105,10 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
 
     setIsSubmitting(true);
     try {
-      await login(email, password, tenantId);
+      await login(loginIdentifier.trim(), password, tenantId);
       onAuthenticated?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+      setError(toPasswordLoginErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -171,13 +186,13 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
       {serverError && <div className="alert alert-danger">{serverError}</div>}
       {serverMessage && <div className="alert alert-info">{serverMessage}</div>}
 
-      {!showEmailForm && (
+      {!showEmailForm && !showPasswordlessEmailForm && (
         <div className="d-grid gap-3 justify-items-center">
           {googleClientId && <GoogleCredentialButton clientId={googleClientId} text="continue_with" onCredential={credential => void handleExternalLogin("Google", credential)} onError={setError} />}
           {appleClientId && (
             <AuthProviderButton variant="apple" label="Continue with Apple" busyLabel="Opening Apple..." busy={busyProvider === "Apple"} onClick={() => void handleAppleLogin()} />
           )}
-          <AuthProviderButton variant="email" label="Continue with Email" onClick={() => setShowEmailForm(true)} />
+          <AuthProviderButton variant="email" label={emailLoginButtonLabel ?? (allowUsernameOrEmail ? "Username/Email Login" : "Continue with Email")} onClick={() => setShowEmailForm(true)} />
         </div>
       )}
 
@@ -189,8 +204,8 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
             </button>
             {formError && <div className="alert alert-danger py-2">{formError}</div>}
             <div className="mb-3">
-              <label className="form-label">Email</label>
-              <input type="email" className="form-control" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" />
+              <label className="form-label">{allowUsernameOrEmail ? "Username / Email" : "Email"}</label>
+              <input type={allowUsernameOrEmail ? "text" : "email"} className="form-control" value={loginIdentifier} onChange={event => setLoginIdentifier(event.target.value)} autoComplete={allowUsernameOrEmail ? "username" : "email"} />
             </div>
             <PasswordField className="mb-3" label="Password" value={password} autoComplete="current-password" onChange={setPassword} />
             <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
@@ -198,15 +213,42 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
             </button>
           </form>
           <div className="border-top mt-4 pt-4">
-            <h2 className="h6">Sign in with an email code</h2>
-            <p className="small text-muted">Useful on mobile, or if you do not want to use your password right now.</p>
-            <PasswordlessEmailLoginForm challengeId={passwordlessChallengeId} busy={passwordlessBusy} onBegin={requestPasswordlessCode} onComplete={completePasswordlessCode} />
+            <button
+              type="button"
+              className="btn btn-link p-0 small"
+              onClick={() => {
+                setShowEmailForm(false);
+                setShowPasswordlessEmailForm(true);
+              }}
+            >
+              Send a one-time login code via email
+            </button>
           </div>
+        </>
+      )}
+
+      {showPasswordlessEmailForm && (
+        <>
+          <button
+            type="button"
+            className="btn btn-link px-0 mb-3"
+            onClick={() => {
+              setShowPasswordlessEmailForm(false);
+              setShowEmailForm(true);
+            }}
+          >
+            Back to Login
+          </button>
+          <h2 className="h6">Send a one-time login code via email</h2>
+          <p className="small text-muted">Useful on mobile, or if you do not want to use your password right now.</p>
+          <PasswordlessEmailLoginForm challengeId={passwordlessChallengeId} busy={passwordlessBusy} onBegin={requestPasswordlessCode} onComplete={completePasswordlessCode} />
         </>
       )}
     </div>
   );
 }
+
+
 
 
 
