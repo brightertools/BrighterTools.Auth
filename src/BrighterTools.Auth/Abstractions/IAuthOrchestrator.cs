@@ -1,4 +1,4 @@
-﻿using BrighterTools.Auth.Dtos;
+using BrighterTools.Auth.Dtos;
 using BrighterTools.Auth.Models;
 
 namespace BrighterTools.Auth.Abstractions;
@@ -40,6 +40,10 @@ public interface IAuthOrchestrator
     /// Issues a new session for a known, already-trusted user context. Use this for server-side session handoff flows rather than credential validation.
     /// </summary>
     Task<AuthResponse> IssueSessionAsync(IssueSessionRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Persists a new active tenant for an authenticated user and issues a session for that tenant.
+    /// </summary>
+    Task<AuthResponse> SwitchTenantAsync(SwitchTenantRequest request, CancellationToken cancellationToken = default);
     /// <summary>
     /// Exchanges a refresh token for a new session according to the configured rotation rules.
     /// </summary>
@@ -161,6 +165,7 @@ public interface IAuthOrchestrator
     /// </summary>
     Task<CurrentSessionResponse> GetCurrentSessionAsync(string userId, CancellationToken cancellationToken = default);
 }
+
 
 
 

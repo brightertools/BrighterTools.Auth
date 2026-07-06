@@ -36,6 +36,11 @@ public sealed class BrighterToolsAuthOptions
     public ExternalSignupOptions ExternalSignup { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets the optional age-gate configuration used by sign-up flows.
+    /// </summary>
+    public SignupAgeGateOptions SignupAgeGate { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets the MFA configuration surfaced through the library.
     /// </summary>
     public MfaOptions Mfa { get; set; } = new();

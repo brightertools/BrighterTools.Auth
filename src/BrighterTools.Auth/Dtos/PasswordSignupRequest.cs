@@ -36,6 +36,16 @@ public sealed class PasswordSignupRequest
     public string? Phone { get; init; }
 
     /// <summary>
+    /// Gets the date of birth supplied for age-gated sign-up flows.
+    /// </summary>
+    public string? DateOfBirth { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the user confirmed they meet the configured minimum age.
+    /// </summary>
+    public bool MinimumAgeConfirmed { get; init; }
+
+    /// <summary>
     /// Gets the verified email challenge identifier used to prove ownership before password sign-up.
     /// </summary>
     public string? EmailVerificationChallengeId { get; init; }

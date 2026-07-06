@@ -299,6 +299,7 @@ public sealed class DefaultAuthOrchestratorTests
                 refreshTokenStore,
                 new FakeAuthSessionStore(),
                 new FakeTenantContextResolver(),
+                new UnsupportedAuthTenantSwitchStore(),
                 new FakeOnboardingEvaluator(onboarding ?? OnboardingState.NotRequired()),
                 new FakeOnboardingCompletionService(),
                 emailWorkflow,

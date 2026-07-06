@@ -7,6 +7,7 @@ obj/
 artifacts/
 TestResults/
 coverage/
+.dotnet/
 
 *.user
 *.suo

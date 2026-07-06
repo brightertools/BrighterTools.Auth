@@ -35,6 +35,11 @@ public sealed class BrighterToolsAuthOptionsValidator : IValidateOptions<Brighte
             failures.Add("BrighterToolsAuth:Providers:EnabledProviders must be configured.");
         }
 
+        if (options.SignupAgeGate.Enabled && options.SignupAgeGate.MinimumAge <= 0)
+        {
+            failures.Add("BrighterToolsAuth:SignupAgeGate:MinimumAge must be greater than zero when signup age-gate validation is enabled.");
+        }
+
         if (options.Providers.EnabledProviders?.Contains(AuthProviderType.Apple) == true && options.ExternalProviders.Apple.ValidationAudiences.Count == 0)
         {
             failures.Add("BrighterToolsAuth:ExternalProviders:Apple must include at least one audience or WebClientId when Apple is enabled.");

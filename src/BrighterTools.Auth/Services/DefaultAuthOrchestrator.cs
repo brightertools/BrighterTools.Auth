@@ -1,4 +1,4 @@
-﻿using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Abstractions;
 using BrighterTools.Auth.Defaults;
 using BrighterTools.Auth.Dtos;
 using BrighterTools.Auth.Models;
@@ -29,6 +29,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly IAuthSessionStore _authSessionStore;
     private readonly ITenantContextResolver _tenantContextResolver;
+    private readonly IAuthTenantSwitchStore _tenantSwitchStore;
     private readonly IOnboardingStateEvaluator _onboardingStateEvaluator;
     private readonly IOnboardingCompletionService _onboardingCompletionService;
     private readonly IEmailWorkflowService _emailWorkflowService;
@@ -63,6 +64,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         IRefreshTokenStore refreshTokenStore,
         IAuthSessionStore authSessionStore,
         ITenantContextResolver tenantContextResolver,
+        IAuthTenantSwitchStore tenantSwitchStore,
         IOnboardingStateEvaluator onboardingStateEvaluator,
         IOnboardingCompletionService onboardingCompletionService,
         IEmailWorkflowService emailWorkflowService,
@@ -95,6 +97,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         _refreshTokenStore = refreshTokenStore;
         _authSessionStore = authSessionStore;
         _tenantContextResolver = tenantContextResolver;
+        _tenantSwitchStore = tenantSwitchStore;
         _onboardingStateEvaluator = onboardingStateEvaluator;
         _onboardingCompletionService = onboardingCompletionService;
         _emailWorkflowService = emailWorkflowService;
@@ -204,6 +207,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     public async Task<AuthResponse> SignupWithExternalProviderAsync(ExternalSignupRequest request, CancellationToken cancellationToken = default)
     {
         EnsureProviderEnabled(request.Provider);
+        ValidateSignupAgeGate(request.DateOfBirth, request.MinimumAgeConfirmed);
 
         var validator = _externalValidators.FirstOrDefault(x => x.Provider == request.Provider)
             ?? throw new InvalidOperationException($"No validator registered for provider '{request.Provider}'.");
@@ -252,6 +256,37 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         await EnsureProviderAllowedAsync(user, request.Provider, request.TenantId, cancellationToken);
         return await CreateAuthResponseAsync(user, request.Provider, request.TenantId, request.SwitchToCurrentTenant, cancellationToken);
     }
+
+    /// <summary>
+    /// Persists a new active tenant for an authenticated user and issues a session for that tenant.
+    /// </summary>
+    public async Task<AuthResponse> SwitchTenantAsync(SwitchTenantRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserId))
+        {
+            throw new InvalidOperationException("User is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.TenantId))
+        {
+            throw new InvalidOperationException("Tenant is required.");
+        }
+
+        var switchResult = await _tenantSwitchStore.SwitchTenantAsync(request, cancellationToken);
+        var userId = string.IsNullOrWhiteSpace(switchResult.UserId) ? request.UserId : switchResult.UserId;
+        var tenantId = string.IsNullOrWhiteSpace(switchResult.TenantId) ? request.TenantId : switchResult.TenantId;
+
+        return await IssueSessionAsync(
+            new IssueSessionRequest
+            {
+                UserId = userId,
+                TenantId = tenantId,
+                Provider = request.Provider,
+                SwitchToCurrentTenant = request.SwitchToCurrentTenant
+            },
+            cancellationToken);
+    }
+
     /// <summary>
     /// Refreshes an existing authentication session.
     /// </summary>
@@ -289,7 +324,10 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     /// Signs up a user with a password-based flow.
     /// </summary>
     public Task<PasswordSignupResult> SignupWithPasswordAsync(PasswordSignupRequest request, CancellationToken cancellationToken = default)
-        => _registrationWorkflowService.SignupWithPasswordAsync(request, cancellationToken);
+    {
+        ValidateSignupAgeGate(request.DateOfBirth, request.MinimumAgeConfirmed);
+        return _registrationWorkflowService.SignupWithPasswordAsync(request, cancellationToken);
+    }
 
     /// <summary>
     /// Begins email verification before password-based sign-up.
@@ -599,6 +637,46 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     public async Task<CurrentSessionResponse> GetCurrentSessionAsync(string userId, CancellationToken cancellationToken = default)
         => new() { Session = await BuildCurrentSessionResponseAsync(userId, cancellationToken) };
 
+    private void ValidateSignupAgeGate(string? dateOfBirth, bool minimumAgeConfirmed)
+    {
+        if (!_options.SignupAgeGate.Enabled)
+        {
+            return;
+        }
+
+        if (_options.SignupAgeGate.RequireMinimumAgeConfirmation && !minimumAgeConfirmed)
+        {
+            throw new InvalidOperationException($"Please confirm you are at least {_options.SignupAgeGate.MinimumAge} years old.");
+        }
+
+        if (_options.SignupAgeGate.RequireDateOfBirth && string.IsNullOrWhiteSpace(dateOfBirth))
+        {
+            throw new InvalidOperationException("Please enter your date of birth.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dateOfBirth))
+        {
+            return;
+        }
+
+        var acceptedDateFormats = new[] { "dd/MM/yyyy", "yyyy-MM-dd" };
+        if (!DateTime.TryParseExact(
+                dateOfBirth,
+                acceptedDateFormats,
+                System.Globalization.DateTimeFormatInfo.InvariantInfo,
+                System.Globalization.DateTimeStyles.None,
+                out var parsedDateOfBirth))
+        {
+            throw new InvalidOperationException("Please enter a valid date of birth.");
+        }
+
+        var minimumDateOfBirth = _clock.UtcNow.Date.AddYears(-_options.SignupAgeGate.MinimumAge);
+        if (parsedDateOfBirth.Date > minimumDateOfBirth)
+        {
+            throw new InvalidOperationException($"You must be at least {_options.SignupAgeGate.MinimumAge} years old.");
+        }
+    }
+
     private async Task<AuthResponse> CreateAuthResponseAsync(AuthUser user, AuthProviderType provider, string? requestedTenantId, bool switchToCurrentTenant, CancellationToken cancellationToken, AuthRefreshToken? currentRefreshToken = null)
     {
         var tenantMembership = await _tenantContextResolver.ResolveAsync(user, requestedTenantId, switchToCurrentTenant, cancellationToken);
@@ -738,6 +816,10 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         }
     }
 }
+
+
+
+
 
 
 

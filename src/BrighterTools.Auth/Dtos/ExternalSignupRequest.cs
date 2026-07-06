@@ -25,6 +25,16 @@ public sealed class ExternalSignupRequest
     public string? TenantId { get; init; }
 
     /// <summary>
+    /// Gets the date of birth supplied for age-gated sign-up flows.
+    /// </summary>
+    public string? DateOfBirth { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the user confirmed they meet the configured minimum age.
+    /// </summary>
+    public bool MinimumAgeConfirmed { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether the terms of service were accepted.
     /// </summary>
     public bool TermsAccepted { get; init; }

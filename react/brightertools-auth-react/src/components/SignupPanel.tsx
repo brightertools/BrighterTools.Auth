@@ -19,7 +19,12 @@ export interface SignupPanelProps {
   googleClientId?: string;
   appleClientId?: string;
   appleRedirectPath?: string;
+  appleRedirectOrigin?: string;
   minimumPasswordLength?: number;
+  signupAgeGateEnabled?: boolean;
+  minimumSignupAge?: number;
+  signupDateOfBirthRequired?: boolean;
+  signupMinimumAgeConfirmationRequired?: boolean;
   tenantId?: string;
   consentToMarketingEmails?: boolean;
   consentToHelpEmails?: boolean;
@@ -29,13 +34,16 @@ export interface SignupPanelProps {
   onError?: (message: string) => void;
 }
 
-export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyUrl = "/privacy", googleClientId, appleClientId, appleRedirectPath = "/register", minimumPasswordLength = 8, tenantId, consentToMarketingEmails = false, consentToHelpEmails = false, fields = {}, onAuthenticated, onAccountCreatedRequiresEmailVerification, onError }: SignupPanelProps) {
+export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyUrl = "/privacy", googleClientId, appleClientId, appleRedirectPath = "/register", appleRedirectOrigin, minimumPasswordLength = 8, signupAgeGateEnabled = false, minimumSignupAge = 0, signupDateOfBirthRequired = false, signupMinimumAgeConfirmationRequired = false, tenantId, consentToMarketingEmails = false, consentToHelpEmails = false, fields = {}, onAuthenticated, onAccountCreatedRequiresEmailVerification, onError }: SignupPanelProps) {
   const { login, externalSignup } = useAuth();
   const signupWithPassword = usePasswordSignup();
   const signupEmailVerification = useSignupEmailVerification();
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [minimumAgeConfirmed, setMinimumAgeConfirmed] = useState(false);
+  const [ageGateTouched, setAgeGateTouched] = useState(false);
   const [legalConsentAccepted, setLegalConsentAccepted] = useState(false);
   const [legalConsentTouched, setLegalConsentTouched] = useState(false);
   const [busyProvider, setBusyProvider] = useState<AuthProviderType | null>(null);
@@ -56,7 +64,62 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
     onError?.(message);
   };
 
+  const getAge = (value: string) => {
+    const parsedDate = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return null;
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - parsedDate.getFullYear();
+    const monthDifference = today.getMonth() - parsedDate.getMonth();
+    if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < parsedDate.getDate())) {
+      age--;
+    }
+
+    return age;
+  };
+
+  const validateAgeGate = () => {
+    if (!signupAgeGateEnabled) {
+      return true;
+    }
+
+    if (signupDateOfBirthRequired && dateOfBirth.trim().length === 0) {
+      setAgeGateTouched(true);
+      setError("Please enter your date of birth.");
+      return false;
+    }
+
+    if (dateOfBirth.trim().length > 0) {
+      const age = getAge(dateOfBirth);
+      if (age === null) {
+        setAgeGateTouched(true);
+        setError("Please enter a valid date of birth.");
+        return false;
+      }
+
+      if (age < minimumSignupAge) {
+        setAgeGateTouched(true);
+        setError(`You must be at least ${minimumSignupAge} years old.`);
+        return false;
+      }
+    }
+
+    if (signupMinimumAgeConfirmationRequired && !minimumAgeConfirmed) {
+      setAgeGateTouched(true);
+      setError(`Please confirm you are at least ${minimumSignupAge} years old.`);
+      return false;
+    }
+
+    return true;
+  };
+
   const validateConsent = () => {
+    if (!validateAgeGate()) {
+      return false;
+    }
+
     if (!legalConsentAccepted) {
       setLegalConsentTouched(true);
       setError("Please accept the terms and privacy policy before creating an account.");
@@ -149,6 +212,8 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
         email: signupEmail,
         password,
         emailVerificationChallengeId: signupChallengeId,
+        dateOfBirth,
+        minimumAgeConfirmed,
         termsAccepted: legalConsentAccepted,
         privacyPolicyAccepted: legalConsentAccepted,
         consentToMarketingEmails,
@@ -188,6 +253,8 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
         provider,
         credential,
         tenantId,
+        dateOfBirth,
+        minimumAgeConfirmed,
         termsAccepted: legalConsentAccepted,
         privacyPolicyAccepted: legalConsentAccepted,
         consentToMarketingEmails,
@@ -206,7 +273,7 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
     if (!appleClientId || !validateConsent()) return;
 
     try {
-      const credential = await signInWithApple(appleClientId, appleRedirectPath);
+      const credential = await signInWithApple(appleClientId, appleRedirectPath, appleRedirectOrigin);
       await handleExternalSignup("Apple", credential);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Apple sign-up was cancelled or failed.");
@@ -219,6 +286,39 @@ export function SignupPanel({ appName = "the app", termsUrl = "/terms", privacyU
       {successMessage && <div className="alert alert-info py-2 small mb-3" role="alert">{successMessage}</div>}
 
       <div className="mx-auto w-100 mb-3" style={{ maxWidth: 400 }}>
+        {signupAgeGateEnabled && (
+          <div className="mb-3">
+            <label className="form-label" htmlFor="btSignupDateOfBirth">Date of birth</label>
+            <input
+              id="btSignupDateOfBirth"
+              type="date"
+              className={`form-control${ageGateTouched && signupDateOfBirthRequired && !dateOfBirth ? " is-invalid" : ""}`}
+              value={dateOfBirth}
+              onChange={event => {
+                setDateOfBirth(event.target.value);
+                setAgeGateTouched(false);
+                setServerError("");
+              }}
+            />
+          </div>
+        )}
+        {signupAgeGateEnabled && signupMinimumAgeConfirmationRequired && (
+          <label className={`d-flex gap-2 align-items-start mb-3${ageGateTouched && !minimumAgeConfirmed ? " text-danger" : ""}`}>
+            <input
+              type="checkbox"
+              checked={minimumAgeConfirmed}
+              aria-invalid={ageGateTouched && !minimumAgeConfirmed}
+              onChange={event => {
+                setMinimumAgeConfirmed(event.target.checked);
+                if (event.target.checked) {
+                  setAgeGateTouched(false);
+                  setServerError("");
+                }
+              }}
+            />
+            <span>I confirm I am at least {minimumSignupAge} years old.</span>
+          </label>
+        )}
         <LegalConsentCheckbox
           checked={legalConsentAccepted}
           termsUrl={termsUrl}

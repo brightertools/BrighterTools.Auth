@@ -10,6 +10,8 @@ export interface PasswordSignupRequest {
   email: string;
   password: string;
   emailVerificationChallengeId?: string;
+  dateOfBirth?: string;
+  minimumAgeConfirmed?: boolean;
   termsAccepted: boolean;
   privacyPolicyAccepted: boolean;
   consentToMarketingEmails?: boolean;
@@ -58,6 +60,8 @@ export interface ExternalLoginRequest {
 export interface ExternalSignupRequest extends ExternalLoginRequest {
   termsAccepted: boolean;
   privacyPolicyAccepted: boolean;
+  dateOfBirth?: string;
+  minimumAgeConfirmed?: boolean;
   consentToMarketingEmails?: boolean;
   consentToHelpEmails?: boolean;
   fields?: Record<string, unknown>;

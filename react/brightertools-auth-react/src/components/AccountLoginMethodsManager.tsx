@@ -9,12 +9,13 @@ export interface AccountLoginMethodsManagerProps {
   googleClientId?: string;
   appleClientId?: string;
   appleRedirectPath?: string;
+  appleRedirectOrigin?: string;
   minimumPasswordLength?: number;
   loginEmailReturnUrl?: string;
   notificationEmailReturnUrl?: string;
 }
 
-export function AccountLoginMethodsManager({ googleClientId, appleClientId, appleRedirectPath = "/account", minimumPasswordLength = 8, loginEmailReturnUrl = "/account", notificationEmailReturnUrl = "/account" }: AccountLoginMethodsManagerProps) {
+export function AccountLoginMethodsManager({ googleClientId, appleClientId, appleRedirectPath = "/account", appleRedirectOrigin, minimumPasswordLength = 8, loginEmailReturnUrl = "/account", notificationEmailReturnUrl = "/account" }: AccountLoginMethodsManagerProps) {
   const loginMethods = useLoginMethods();
   const [details, setDetails] = useState<AccountLoginMethods | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
@@ -94,7 +95,7 @@ export function AccountLoginMethodsManager({ googleClientId, appleClientId, appl
     if (!appleClientId) return;
 
     try {
-      const credential = await signInWithApple(appleClientId, appleRedirectPath);
+      const credential = await signInWithApple(appleClientId, appleRedirectPath, appleRedirectOrigin);
       await linkProvider("Apple", credential);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Apple sign-in was cancelled or failed.");

@@ -1,4 +1,4 @@
-﻿using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Abstractions;
 using BrighterTools.Auth.Defaults;
 using BrighterTools.Auth.Options;
 using BrighterTools.Auth.Services;
@@ -44,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IUserSecurityEventRecorder, NoOpSecurityEventRecorder>();
         services.TryAddSingleton<IAuthEmailAddressSyncService, NoOpAuthEmailAddressSyncService>();
         services.TryAddSingleton<IAuthSessionStore, NullAuthSessionStore>();
+        services.TryAddSingleton<IAuthTenantSwitchStore, UnsupportedAuthTenantSwitchStore>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IExternalAuthProviderValidator, AppleExternalAuthProviderValidator>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IExternalAuthProviderValidator, GoogleExternalAuthProviderValidator>());
         services.TryAddSingleton<IEmailWorkflowService, NullEmailWorkflowService>();
@@ -62,6 +63,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
+
 
 
 
