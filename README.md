@@ -1,4 +1,4 @@
-﻿# BrighterTools.Auth
+# BrighterTools.Auth
 
 `BrighterTools.Auth` is an authentication composition library for ASP.NET Core applications with a React companion package for reusable auth UI flows.
 
@@ -8,7 +8,7 @@ It is not a security boundary or turnkey authentication system. The host applica
 
 ```powershell
 dotnet add package BrighterTools.Auth
-npm install brightertools-auth-react
+npm install @brightertools/auth-react
 ```
 
 ## Repository Layout

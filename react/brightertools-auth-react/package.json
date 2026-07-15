@@ -1,6 +1,6 @@
-﻿{
-  "name": "brightertools-auth-react",
-  "version": "1.0.0",
+{
+  "name": "@brightertools/auth-react",
+  "version": "1.0.1",
   "description": "React companion components, hooks, API adapters, and localization helpers for BrighterTools.Auth.",
   "license": "MIT-0",
   "type": "module",
@@ -16,7 +16,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "pack:dry-run": "npm pack --dry-run"
+    "pack:dry-run": "npm pack --dry-run",
+    "prepack": "npm run build",
+    "verify:pack": "npm pack --dry-run"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -30,6 +32,7 @@
     "@testing-library/react": "^16.3.0",
     "@types/react": "^18.3.24",
     "@types/react-dom": "^18.3.7",
+    "jsdom": "^26.1.0",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },

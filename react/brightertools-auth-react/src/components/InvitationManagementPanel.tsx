@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   defaultInvitationImportText,
@@ -141,6 +141,12 @@ export function InvitationManagementPanel({
   const [message, setMessage] = useState("");
   const [canChangeEmailAddress, setCanChangeEmailAddress] = useState(defaultCanChangeEmailAddress);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const inviteFirstNameId = useId();
+  const inviteLastNameId = useId();
+  const inviteEmailId = useId();
+  const inviteRoleId = useId();
+  const inviteMessageId = useId();
+  const importMessageId = useId();
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -371,21 +377,21 @@ export function InvitationManagementPanel({
             {inviteHelpContent}
             <div className="row g-3 mb-2">
               <div className="col-12 col-md-6">
-                <label className="form-label">{managementText.firstNameLabel}</label>
-                <input type="text" className="form-control" value={firstName} onChange={event => setFirstName(event.target.value)} />
+                <label className="form-label" htmlFor={inviteFirstNameId}>{managementText.firstNameLabel}</label>
+                <input id={inviteFirstNameId} type="text" className="form-control" value={firstName} onChange={event => setFirstName(event.target.value)} />
               </div>
               <div className="col-12 col-md-6">
-                <label className="form-label">{managementText.lastNameLabel}</label>
-                <input type="text" className="form-control" value={lastName} onChange={event => setLastName(event.target.value)} />
+                <label className="form-label" htmlFor={inviteLastNameId}>{managementText.lastNameLabel}</label>
+                <input id={inviteLastNameId} type="text" className="form-control" value={lastName} onChange={event => setLastName(event.target.value)} />
               </div>
               <div className="col-12 col-md-6">
-                <label className="form-label">{managementText.emailAddressLabel}</label>
-                <input type="email" className="form-control" value={email} onChange={event => setEmail(event.target.value)} />
+                <label className="form-label" htmlFor={inviteEmailId}>{managementText.emailAddressLabel}</label>
+                <input id={inviteEmailId} type="email" className="form-control" value={email} onChange={event => setEmail(event.target.value)} />
               </div>
               {roleOptions.length > 0 && (
                 <div className="col-12 col-md-6">
-                  <label className="form-label">{managementText.roleLabel}</label>
-                  <select className="form-select" value={role} onChange={event => setRole(event.target.value)}>
+                  <label className="form-label" htmlFor={inviteRoleId}>{managementText.roleLabel}</label>
+                  <select id={inviteRoleId} className="form-select" value={role} onChange={event => setRole(event.target.value)}>
                     {roleOptions.map(option => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
@@ -393,8 +399,8 @@ export function InvitationManagementPanel({
                 </div>
               )}
               <div className="col-12">
-                <label className="form-label">{managementText.optionalMessageLabel}</label>
-                <textarea className="form-control" rows={3} value={message} onChange={event => setMessage(event.target.value)} />
+                <label className="form-label" htmlFor={inviteMessageId}>{managementText.optionalMessageLabel}</label>
+                <textarea id={inviteMessageId} className="form-control" rows={3} value={message} onChange={event => setMessage(event.target.value)} />
               </div>
               {showCanChangeEmailAddress && (
                 <div className="col-12">
@@ -433,8 +439,8 @@ export function InvitationManagementPanel({
             </div>
 
             <div className="mb-3">
-              <label className="form-label">{importText.sharedMessageLabel}</label>
-              <textarea className="form-control" rows={3} value={importMessage} onChange={event => setImportMessage(event.target.value)} />
+              <label className="form-label" htmlFor={importMessageId}>{importText.sharedMessageLabel}</label>
+              <textarea id={importMessageId} className="form-control" rows={3} value={importMessage} onChange={event => setImportMessage(event.target.value)} />
             </div>
 
             <div className="mb-3">

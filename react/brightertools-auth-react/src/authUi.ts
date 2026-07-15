@@ -416,7 +416,7 @@ export const defaultEmailVerificationFieldText: Required<EmailVerificationFieldT
   verifiedLabel: "Verified",
   changeEmailAddressLabel: "change email address",
   changeEmailLabel: "change email",
-  resendCodeLabel: "re-send code"
+  resendCodeLabel: "Resend code"
 };
 
 export const defaultLoginPanelText: Required<LoginPanelTextOverrides> = {

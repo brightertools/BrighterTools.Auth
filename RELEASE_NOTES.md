@@ -1,4 +1,9 @@
-﻿# BrighterTools.Auth Release Notes
+## 1.0.1
+
+- Prepared scoped React package publishing as `@brightertools/auth-react`.
+- Included React type/export and test setup updates.
+- Bumped NuGet package metadata for the 1.0.1 patch release.
+# BrighterTools.Auth Release Notes
 
 ## 1.0.0
 

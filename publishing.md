@@ -1,11 +1,11 @@
-﻿# BrighterTools.Auth Publishing
+# BrighterTools.Auth Publishing
 
-This guide is for maintainers packaging and publishing `BrighterTools.Auth` to NuGet and `brightertools-auth-react` to npm.
+This guide is for maintainers packaging and publishing `BrighterTools.Auth` to NuGet and `@brightertools/auth-react` to npm.
 
 ## Package Pages
 
 - NuGet: https://www.nuget.org/packages/BrighterTools.Auth
-- npm: https://www.npmjs.com/package/brightertools-auth-react
+- npm: https://www.npmjs.com/package/@brightertools/auth-react
 
 ## Local Packaging
 
@@ -49,7 +49,7 @@ NuGet uses `NuGet/login@v1` and GitHub OIDC. npm uses trusted publishing from Gi
 - NuGet package owner has a Trusted Publishing policy for this repository, `publish-tool.yml`, and the `production` environment.
 - npm package has a Trusted Publisher entry for this repository, `publish-tool.yml`, and the `production` environment.
 - Package metadata uses the `MIT-0` license.
-- Version is `1.0.0` for the first stable publish.
+- Version is `1.0.1` for this patch publish.
 
 ## Related Docs
 

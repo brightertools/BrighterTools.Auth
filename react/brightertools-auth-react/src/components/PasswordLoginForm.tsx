@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { PasswordField } from "./PasswordField";
 
 export interface PasswordLoginFormProps {
@@ -29,6 +29,7 @@ export function PasswordLoginForm({
   const [login, setLogin] = useState(initialLogin);
   const [password, setPassword] = useState("");
   const resolvedLoginLabel = loginLabel ?? emailLabel;
+  const loginInputId = useId();
 
   return (
     <form
@@ -38,8 +39,8 @@ export function PasswordLoginForm({
       }}
     >
       <div className="mb-3">
-        <label className="form-label">{resolvedLoginLabel}</label>
-        <input type={loginInputType} autoComplete={loginAutoComplete} className="form-control" value={login} onChange={event => setLogin(event.target.value)} required />
+        <label className="form-label" htmlFor={loginInputId}>{resolvedLoginLabel}</label>
+        <input id={loginInputId} type={loginInputType} autoComplete={loginAutoComplete} className="form-control" value={login} onChange={event => setLogin(event.target.value)} required />
       </div>
       <PasswordField className="mb-3" label={passwordLabel} value={password} autoComplete="current-password" required onChange={setPassword} />
       <button type="submit" className="btn btn-primary w-100" disabled={busy}>

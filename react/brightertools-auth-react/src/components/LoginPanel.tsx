@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { AuthProviderButton } from "./AuthProviderButton";
 import { ExternalAuthButtonList } from "./ExternalAuthButtonList";
@@ -101,6 +101,7 @@ export function LoginPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [passwordlessChallengeId, setPasswordlessChallengeId] = useState<string | null>(null);
   const [passwordlessBusy, setPasswordlessBusy] = useState(false);
+  const loginIdentifierId = useId();
 
   useEffect(() => {
     if (resolvedLoginEmailUi.emailDisplayMode === "inline") {
@@ -280,8 +281,9 @@ export function LoginPanel({
         )}
         {formError && <div className="alert alert-danger py-2">{formError}</div>}
         <div className="mb-3">
-          <label className="form-label">{allowUsernameOrEmail ? loginText.usernameOrEmailLabel : loginText.emailLabel}</label>
+          <label className="form-label" htmlFor={loginIdentifierId}>{allowUsernameOrEmail ? loginText.usernameOrEmailLabel : loginText.emailLabel}</label>
           <input
+            id={loginIdentifierId}
             type={allowUsernameOrEmail ? "text" : "email"}
             className="form-control"
             value={loginIdentifier}

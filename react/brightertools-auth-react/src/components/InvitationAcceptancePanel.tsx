@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { defaultInvitationAcceptanceText, formatAuthText, type AuthUiTextOverrides } from "../authUi";
 import { PasswordRulesChecklist, isPasswordValid } from "./PasswordRulesChecklist";
@@ -167,6 +167,14 @@ export function InvitationAcceptancePanel<TUser = unknown>({
     typeof createAccountExtension?.content === "function"
       ? createAccountExtension.content({ email, canChangeEmailAddress: details?.canChangeEmailAddress ?? true, clearFeedback })
       : createAccountExtension?.content;
+  const declineMessageId = useId();
+  const existingEmailId = useId();
+  const existingPasswordId = useId();
+  const firstNameId = useId();
+  const lastNameId = useId();
+  const emailId = useId();
+  const passwordId = useId();
+  const confirmPasswordId = useId();
 
   const setOperationError = (messages: Array<string | ReactNode>) => {
     setFeedback({ tone: "danger", messages });
@@ -408,8 +416,8 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                 <div className={classNames?.declineCard ?? ""}>
                   <div className="alert alert-danger">{text.declineConfirmationBody}</div>
                   <div className="mb-3">
-                    <label className="form-label">{text.declineMessageLabel}</label>
-                    <textarea className="form-control" rows={3} value={responseMessage} onChange={event => setResponseMessage(event.target.value)} />
+                    <label className="form-label" htmlFor={declineMessageId}>{text.declineMessageLabel}</label>
+                    <textarea id={declineMessageId} className="form-control" rows={3} value={responseMessage} onChange={event => setResponseMessage(event.target.value)} />
                   </div>
                   <div className="d-flex justify-content-end gap-2">
                     <button type="button" className="btn btn-secondary" disabled={isSubmitting} onClick={() => setDecliningInvitation(false)}>
@@ -481,12 +489,12 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                             <h5>{text.existingAccountHeading}</h5>
                             <div className="row g-3">
                               <div className="col-12 col-md-6">
-                                <label className="form-label">{text.existingAccountEmailLabel}</label>
-                                <input type="email" className="form-control" value={existingEmail} onChange={event => setExistingEmail(event.target.value)} />
+                                <label className="form-label" htmlFor={existingEmailId}>{text.existingAccountEmailLabel}</label>
+                                <input id={existingEmailId} type="email" className="form-control" value={existingEmail} onChange={event => setExistingEmail(event.target.value)} />
                               </div>
                               <div className="col-12 col-md-6">
-                                <label className="form-label">{text.existingAccountPasswordLabel}</label>
-                                <input type="password" className="form-control" value={existingPassword} onChange={event => setExistingPassword(event.target.value)} />
+                                <label className="form-label" htmlFor={existingPasswordId}>{text.existingAccountPasswordLabel}</label>
+                                <input id={existingPasswordId} type="password" className="form-control" value={existingPassword} onChange={event => setExistingPassword(event.target.value)} />
                               </div>
                             </div>
                             <div className="mt-3 d-grid d-md-flex justify-content-md-end gap-2">
@@ -503,16 +511,17 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                             <h5>{text.createAccountHeading}</h5>
                             <div className="row g-3">
                               <div className="col-12 col-md-6">
-                                <label className="form-label">{text.firstNameLabel}</label>
-                                <input type="text" className="form-control" value={firstName} onChange={event => setFirstName(event.target.value)} />
+                                <label className="form-label" htmlFor={firstNameId}>{text.firstNameLabel}</label>
+                                <input id={firstNameId} type="text" className="form-control" value={firstName} onChange={event => setFirstName(event.target.value)} />
                               </div>
                               <div className="col-12 col-md-6">
-                                <label className="form-label">{text.lastNameLabel}</label>
-                                <input type="text" className="form-control" value={lastName} onChange={event => setLastName(event.target.value)} />
+                                <label className="form-label" htmlFor={lastNameId}>{text.lastNameLabel}</label>
+                                <input id={lastNameId} type="text" className="form-control" value={lastName} onChange={event => setLastName(event.target.value)} />
                               </div>
                               <div className="col-12">
-                                <label className="form-label">{text.emailAddressLabel}</label>
+                                <label className="form-label" htmlFor={emailId}>{text.emailAddressLabel}</label>
                                 <input
+                                  id={emailId}
                                   type="email"
                                   className="form-control"
                                   value={email}
@@ -522,12 +531,12 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                               </div>
                               {extensionContent && <div className="col-12">{extensionContent}</div>}
                               <div className="col-12 col-md-6">
-                                <label className="form-label">{text.passwordLabel}</label>
-                                <input type="password" className="form-control" value={password} onChange={event => setPassword(event.target.value)} />
+                                <label className="form-label" htmlFor={passwordId}>{text.passwordLabel}</label>
+                                <input id={passwordId} type="password" className="form-control" value={password} onChange={event => setPassword(event.target.value)} />
                               </div>
                               <div className="col-12 col-md-6">
-                                <label className="form-label">{text.confirmPasswordLabel}</label>
-                                <input type="password" className="form-control" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} />
+                                <label className="form-label" htmlFor={confirmPasswordId}>{text.confirmPasswordLabel}</label>
+                                <input id={confirmPasswordId} type="password" className="form-control" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} />
                               </div>
                               <div className="col-12">
                                 <PasswordRulesChecklist password={password} confirmPassword={confirmPassword} minimumLength={minimumPasswordLength} />

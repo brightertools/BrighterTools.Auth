@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export const OnboardingGuard = ({ children }: PropsWithChildren) => {
   const { session } = useAuth();
-  return session?.onboarding.required ? <Navigate to="/onboarding" replace /> : <>{children}</>;
+  return session?.onboarding?.required ? <Navigate to="/onboarding" replace /> : <>{children}</>;
 };
 
 
