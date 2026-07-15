@@ -1,6 +1,8 @@
 using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Constants;
 using BrighterTools.Auth.Defaults;
 using BrighterTools.Auth.Dtos;
+using BrighterTools.Auth.Exceptions;
 using BrighterTools.Auth.Models;
 using BrighterTools.Auth.Options;
 using Microsoft.Extensions.Options;
@@ -156,8 +158,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     public async Task<AuthResponse> LoginWithExternalProviderAsync(ExternalLoginRequest request, CancellationToken cancellationToken = default)
     {
         EnsureProviderEnabled(request.Provider);
-        var validator = _externalValidators.FirstOrDefault(x => x.Provider == request.Provider)
-            ?? throw new InvalidOperationException($"No validator registered for provider '{request.Provider}'.");
+        var validator = GetExternalValidator(request.Provider);
 
         var identity = await validator.ValidateAsync(request.Credential, cancellationToken);
         var user = await _userLookupService.FindByExternalLoginAsync(identity.Provider, identity.ProviderSubject, cancellationToken);
@@ -165,13 +166,17 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         {
             if (!request.AllowProvisioning || !_options.ExternalSignup.AllowProvisioningFromLogin)
             {
-                throw new InvalidOperationException("No account is linked to this login method.");
+                throw new AuthFailureException(
+                    AuthFailureCodes.ExternalLoginNotLinked,
+                    "No account is linked to this login method.");
             }
 
             var provisioningDecision = await _externalUserProvisioningPolicy.EvaluateAsync(identity, cancellationToken);
             if (!provisioningDecision.AllowProvisioning)
             {
-                throw new InvalidOperationException(provisioningDecision.Reason ?? "No account is linked to this login method.");
+                throw new AuthFailureException(
+                    provisioningDecision.Code ?? AuthFailureCodes.ExternalLoginNotLinked,
+                    provisioningDecision.Reason ?? "No account is linked to this login method.");
             }
 
             var signupContext = new ExternalSignupContext
@@ -189,11 +194,14 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
             var signupDecision = await _externalSignupPolicy.EvaluateAsync(signupContext, cancellationToken);
             if (!signupDecision.Allowed)
             {
-                throw new InvalidOperationException(signupDecision.Reason ?? "This external login cannot create an account.");
+                throw new AuthFailureException(
+                    signupDecision.Code ?? AuthFailureCodes.ExternalLoginNotLinked,
+                    signupDecision.Reason ?? "This external login cannot create an account.");
             }
 
             user = await _userProvisioningService.CreateExternalUserAsync(signupContext, cancellationToken);
             await _externalLoginStore.LinkAsync(user.Id, identity, cancellationToken);
+            user = await RequireUserAsync(user.Id, cancellationToken);
         }
 
         EnsureUserCanSignIn(user);
@@ -209,14 +217,15 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         EnsureProviderEnabled(request.Provider);
         ValidateSignupAgeGate(request.DateOfBirth, request.MinimumAgeConfirmed);
 
-        var validator = _externalValidators.FirstOrDefault(x => x.Provider == request.Provider)
-            ?? throw new InvalidOperationException($"No validator registered for provider '{request.Provider}'.");
+        var validator = GetExternalValidator(request.Provider);
 
         var identity = await validator.ValidateAsync(request.Credential, cancellationToken);
         var existingUser = await _userLookupService.FindByExternalLoginAsync(identity.Provider, identity.ProviderSubject, cancellationToken);
         if (existingUser is not null)
         {
-            throw new InvalidOperationException("This external login is already linked to an account.");
+            throw new AuthFailureException(
+                AuthFailureCodes.ExternalLoginAlreadyLinked,
+                "This external login is already linked to an account.");
         }
 
         var signupContext = new ExternalSignupContext
@@ -229,11 +238,14 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         var signupDecision = await _externalSignupPolicy.EvaluateAsync(signupContext, cancellationToken);
         if (!signupDecision.Allowed)
         {
-            throw new InvalidOperationException(signupDecision.Reason ?? "This external login cannot create an account.");
+            throw new AuthFailureException(
+                signupDecision.Code ?? AuthFailureCodes.ExternalEmailVerificationRequired,
+                signupDecision.Reason ?? "This external login cannot create an account.");
         }
 
         var user = await _userProvisioningService.CreateExternalUserAsync(signupContext, cancellationToken);
         await _externalLoginStore.LinkAsync(user.Id, identity, cancellationToken);
+        user = await RequireUserAsync(user.Id, cancellationToken);
 
         EnsureUserCanSignIn(user);
         await EnsureProviderAllowedAsync(user, request.Provider, request.TenantId, cancellationToken);
@@ -477,14 +489,15 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     public async Task<LinkedProvidersResponse> LinkProviderAsync(string userId, AuthProviderType provider, string credential, CancellationToken cancellationToken = default)
     {
         EnsureProviderEnabled(provider);
-        var validator = _externalValidators.FirstOrDefault(x => x.Provider == provider)
-            ?? throw new InvalidOperationException($"No validator registered for provider '{provider}'.");
+        var validator = GetExternalValidator(provider);
 
         var identity = await validator.ValidateAsync(credential, cancellationToken);
         var existingUser = await _userLookupService.FindByExternalLoginAsync(identity.Provider, identity.ProviderSubject, cancellationToken);
         if (existingUser is not null && !string.Equals(existingUser.Id, userId, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("This external login is already linked to another user.");
+            throw new AuthFailureException(
+                AuthFailureCodes.ExternalLoginAlreadyLinked,
+                "This external login is already linked to another user.");
         }
 
         await _externalLoginStore.LinkAsync(userId, identity, cancellationToken);
@@ -762,6 +775,12 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         };
     }
 
+    private IExternalAuthProviderValidator GetExternalValidator(AuthProviderType provider)
+        => _externalValidators.FirstOrDefault(x => x.Provider == provider)
+            ?? throw new AuthFailureException(
+                AuthFailureCodes.ExternalProviderNotSupported,
+                $"Provider '{provider}' is not supported.");
+
     private async Task<AuthUser> RequireUserAsync(string userId, CancellationToken cancellationToken)
         => await _userLookupService.FindByIdAsync(userId, cancellationToken) ?? throw new InvalidOperationException("User not found.");
 
@@ -810,10 +829,19 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     private async Task EnsureProviderAllowedAsync(AuthUser user, AuthProviderType provider, string? tenantId, CancellationToken cancellationToken)
     {
         var result = await _loginProviderPolicy.EvaluateAsync(user, provider, tenantId, cancellationToken);
-        if (!result.Allowed)
+        if (result.Allowed)
         {
-            throw new InvalidOperationException(result.Reason ?? "Provider is not allowed.");
+            return;
         }
+
+        if (provider is AuthProviderType.Google or AuthProviderType.Apple or AuthProviderType.Microsoft)
+        {
+            throw new AuthFailureException(
+                AuthFailureCodes.ExternalProviderNotEnabledForAccount,
+                result.Reason ?? "The requested login method is not enabled for this account.");
+        }
+
+        throw new InvalidOperationException(result.Reason ?? "Provider is not allowed.");
     }
 }
 

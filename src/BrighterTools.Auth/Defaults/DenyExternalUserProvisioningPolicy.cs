@@ -1,4 +1,5 @@
-﻿using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Constants;
 using BrighterTools.Auth.Models;
 
 namespace BrighterTools.Auth.Defaults;
@@ -12,6 +13,7 @@ public sealed class DenyExternalUserProvisioningPolicy : IExternalUserProvisioni
     /// Performs the evaluate operation.
     /// </summary>
     public Task<ExternalUserProvisioningDecision> EvaluateAsync(ExternalIdentity identity, CancellationToken cancellationToken = default)
-        => Task.FromResult(ExternalUserProvisioningDecision.Deny("No account is linked to this login method."));
+        => Task.FromResult(ExternalUserProvisioningDecision.DenyWithCode(
+            AuthFailureCodes.ExternalLoginNotLinked,
+            "No account is linked to this login method."));
 }
-

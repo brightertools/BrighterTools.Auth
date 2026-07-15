@@ -64,6 +64,8 @@ export interface ExternalSignupRequest extends ExternalLoginRequest {
   minimumAgeConfirmed?: boolean;
   consentToMarketingEmails?: boolean;
   consentToHelpEmails?: boolean;
+  verifiedEmail?: string;
+  emailVerificationChallengeId?: string;
   fields?: Record<string, unknown>;
 }
 

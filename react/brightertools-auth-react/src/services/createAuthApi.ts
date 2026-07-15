@@ -36,6 +36,7 @@ import type { LinkedProvider } from "../types/auth";
 export interface ApiEnvelope<T> {
   success: boolean;
   message?: string;
+  code?: string;
   data?: T;
 }
 
@@ -197,6 +198,7 @@ export const createAuthApi = (optionsOrBaseUrl: CreateAuthApiOptions | string = 
       return {
         success: false,
         message: response.status >= 500 ? defaultRequestErrorMessage : parsed?.message ?? defaultRequestErrorMessage,
+        code: parsed?.code,
         data: parsed?.data
       };
     }

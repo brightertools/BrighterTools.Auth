@@ -16,6 +16,11 @@ public sealed class ExternalSignupDecision
     public string? Reason { get; init; }
 
     /// <summary>
+    /// Gets the stable denial code when sign-up is blocked.
+    /// </summary>
+    public string? Code { get; init; }
+
+    /// <summary>
     /// Creates an allow decision.
     /// </summary>
     public static ExternalSignupDecision Allow() => new() { Allowed = true };
@@ -24,4 +29,10 @@ public sealed class ExternalSignupDecision
     /// Creates a deny decision.
     /// </summary>
     public static ExternalSignupDecision Deny(string? reason = null) => new() { Allowed = false, Reason = reason };
+
+    /// <summary>
+    /// Creates a deny decision with a stable failure code.
+    /// </summary>
+    public static ExternalSignupDecision DenyWithCode(string code, string? reason = null)
+        => new() { Allowed = false, Code = code, Reason = reason };
 }

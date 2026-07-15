@@ -40,19 +40,41 @@ public sealed class BrighterToolsAuthOptionsValidator : IValidateOptions<Brighte
             failures.Add("BrighterToolsAuth:SignupAgeGate:MinimumAge must be greater than zero when signup age-gate validation is enabled.");
         }
 
-        if (options.Providers.EnabledProviders?.Contains(AuthProviderType.Apple) == true && options.ExternalProviders.Apple.ValidationAudiences.Count == 0)
-        {
-            failures.Add("BrighterToolsAuth:ExternalProviders:Apple must include at least one audience or WebClientId when Apple is enabled.");
-        }
-
-        if (options.Providers.EnabledProviders?.Contains(AuthProviderType.Google) == true && options.ExternalProviders.Google.ValidationAudiences.Count == 0)
-        {
-            failures.Add("BrighterToolsAuth:ExternalProviders:Google must include at least one audience or WebClientId when Google is enabled.");
-        }
+        ValidateOidcProvider(failures, options, AuthProviderType.Apple, "Apple", options.ExternalProviders.Apple, requireStaticIssuer: true);
+        ValidateOidcProvider(failures, options, AuthProviderType.Google, "Google", options.ExternalProviders.Google, requireStaticIssuer: true);
+        ValidateOidcProvider(failures, options, AuthProviderType.Microsoft, "Microsoft", options.ExternalProviders.Microsoft, requireStaticIssuer: false);
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);
     }
-}
 
+    private static void ValidateOidcProvider(
+        ICollection<string> failures,
+        BrighterToolsAuthOptions options,
+        AuthProviderType provider,
+        string providerName,
+        OidcExternalProviderOptions providerOptions,
+        bool requireStaticIssuer)
+    {
+        if (options.Providers.EnabledProviders?.Contains(provider) != true)
+        {
+            return;
+        }
+
+        if (providerOptions.ValidationAudiences.Count == 0)
+        {
+            failures.Add($"BrighterToolsAuth:ExternalProviders:{providerName} must include at least one audience or WebClientId when {providerName} is enabled.");
+        }
+
+        if (string.IsNullOrWhiteSpace(providerOptions.MetadataAddress))
+        {
+            failures.Add($"BrighterToolsAuth:ExternalProviders:{providerName}:MetadataAddress must be configured when {providerName} is enabled.");
+        }
+
+        if (requireStaticIssuer && string.IsNullOrWhiteSpace(providerOptions.Issuer))
+        {
+            failures.Add($"BrighterToolsAuth:ExternalProviders:{providerName}:Issuer must be configured when {providerName} is enabled.");
+        }
+    }
+}

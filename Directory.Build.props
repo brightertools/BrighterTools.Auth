@@ -22,16 +22,16 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <VersionPrefix>1.1.0</VersionPrefix>
-    <PackageReleaseNotes>v1.1.0 - Tenant switching and signup workflow enhancements
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <PackageReleaseNotes>v1.0.0 - Initial release
 
 Included:
-- Added tenant switching abstractions and default fail-closed implementation.
-- Added signup age gate options to password and external signup requests.
-- Updated the React signup components and API types for the new signup flow.
+- Core authentication composition package.
+- Initial public API for orchestration, DI registration, and fail-closed defaults.
+- Documentation, NuGet packaging support, and Microsoft.IdentityModel 8.19.1 dependencies.
 
 Breaking changes:
-- DefaultAuthOrchestrator now requires an IAuthTenantSwitchStore dependency.</PackageReleaseNotes>
+- None. This is the first stable release.</PackageReleaseNotes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
     <GenerateDocumentationFile>false</GenerateDocumentationFile>

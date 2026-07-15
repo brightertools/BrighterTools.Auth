@@ -1,16 +1,12 @@
-# v1.0.0 - Initial Release
+﻿# BrighterTools.Auth Release Notes
 
-## Summary
+## 1.0.0
 
-Initial stable release of the package.
+Initial stable release.
 
-## Included
+Included:
 
-- Core package functionality.
-- Initial public API.
-- Documentation and usage examples.
-- NuGet packaging support.
-
-## Breaking Changes
-
-- None. This is the first stable release.
+- Backend authentication composition package.
+- React companion auth components, hooks, API adapters, and localization helpers.
+- NuGet and npm package metadata using the MIT-0 license.
+- CI package validation and trusted-publishing workflows.

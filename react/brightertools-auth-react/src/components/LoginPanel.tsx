@@ -1,13 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { AuthProviderButton } from "./AuthProviderButton";
-import { GoogleCredentialButton } from "./GoogleCredentialButton";
+import { ExternalAuthButtonList } from "./ExternalAuthButtonList";
 import { PasswordField } from "./PasswordField";
 import { PasswordlessEmailLoginForm } from "./PasswordlessEmailLoginForm";
+import {
+  defaultLoginPanelText,
+  defaultPasswordLoginFormText,
+  defaultPasswordlessEmailLoginFormText,
+  formatAuthText,
+  resolveAuthProviderUiConfigs,
+  resolveLoginEmailUiOptions,
+  type AuthProviderUiConfig,
+  type AuthUiTextOverrides,
+  type LoginEmailUiOptions
+} from "../authUi";
 import { signInWithApple } from "../services/appleAuth";
+import { signInWithMicrosoft } from "../services/microsoftAuth";
 import { useAuth } from "../hooks/useAuth";
 import { usePasswordlessEmailLogin } from "../hooks/usePasswordlessEmailLogin";
 import type { AuthProviderType } from "../types/auth";
+import { AuthApiError } from "../errors/AuthApiError";
 
 const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
 const defaultRequestErrorMessage = "There was an error processing the request.";
@@ -19,8 +32,15 @@ const toPasswordLoginErrorMessage = (err: unknown) => {
 };
 
 export interface LoginPanelProps {
+  className?: string;
+  providerUi?: AuthProviderUiConfig[];
+  loginEmailUi?: LoginEmailUiOptions;
+  textOverrides?: AuthUiTextOverrides;
   googleClientId?: string;
   appleClientId?: string;
+  microsoftClientId?: string;
+  microsoftAuthority?: string;
+  microsoftRedirectPath?: string;
   appleRedirectPath?: string;
   appleRedirectOrigin?: string;
   passwordlessToken?: string | null;
@@ -30,15 +50,49 @@ export interface LoginPanelProps {
   allowUsernameOrEmail?: boolean;
   emailLoginButtonLabel?: string;
   onAuthenticated?: (returnUrl?: string) => void;
-  onError?: (message: string) => void;
+  onError?: (message: string, code?: string, provider?: AuthProviderType) => void;
+  transformError?: (message: string, code?: string, provider?: AuthProviderType) => string;
 }
 
-export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = "/login", appleRedirectOrigin, passwordlessToken, passwordlessReturnUrl = "/dashboard", passwordlessCodeReturnUrl = "/dashboard", tenantId, allowUsernameOrEmail = false, emailLoginButtonLabel, onAuthenticated, onError }: LoginPanelProps) {
+export function LoginPanel({
+  className,
+  providerUi,
+  loginEmailUi,
+  textOverrides,
+  googleClientId,
+  appleClientId,
+  microsoftClientId,
+  microsoftAuthority,
+  microsoftRedirectPath = "/login",
+  appleRedirectPath = "/login",
+  appleRedirectOrigin,
+  passwordlessToken,
+  passwordlessReturnUrl = "/dashboard",
+  passwordlessCodeReturnUrl = "/dashboard",
+  tenantId,
+  allowUsernameOrEmail = false,
+  emailLoginButtonLabel,
+  onAuthenticated,
+  onError,
+  transformError
+}: LoginPanelProps) {
   const { login, externalLogin } = useAuth();
   const passwordlessLogin = usePasswordlessEmailLogin();
+  const loginText = useMemo(() => ({ ...defaultLoginPanelText, ...textOverrides?.login }), [textOverrides]);
+  const passwordLoginText = useMemo(() => ({ ...defaultPasswordLoginFormText, ...textOverrides?.passwordLogin }), [textOverrides]);
+  const passwordlessText = useMemo(() => ({ ...defaultPasswordlessEmailLoginFormText, ...textOverrides?.passwordlessEmailLogin }), [textOverrides]);
+  const resolvedLoginEmailUi = useMemo(() => resolveLoginEmailUiOptions(loginEmailUi), [loginEmailUi]);
+  const resolvedProviderUi = useMemo(() => resolveAuthProviderUiConfigs({
+    providerUi,
+    googleClientId,
+    appleClientId,
+    microsoftClientId,
+    microsoftAuthority
+  }), [appleClientId, googleClientId, microsoftAuthority, microsoftClientId, providerUi]);
+  const defaultEmailButtonLabel = allowUsernameOrEmail ? "Username/Email Login" : loginText.emailButtonLabel;
   const [serverError, setServerError] = useState<string | null>(null);
   const [serverMessage, setServerMessage] = useState<string | null>(null);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(resolvedLoginEmailUi.emailDisplayMode === "inline");
   const [showPasswordlessEmailForm, setShowPasswordlessEmailForm] = useState(false);
   const [busyProvider, setBusyProvider] = useState<AuthProviderType | null>(null);
   const [loginIdentifier, setLoginIdentifier] = useState("");
@@ -48,10 +102,25 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
   const [passwordlessChallengeId, setPasswordlessChallengeId] = useState<string | null>(null);
   const [passwordlessBusy, setPasswordlessBusy] = useState(false);
 
-  const setError = useCallback((message: string) => {
-    setServerError(message);
-    onError?.(message);
-  }, [onError]);
+  useEffect(() => {
+    if (resolvedLoginEmailUi.emailDisplayMode === "inline") {
+      setShowEmailForm(true);
+    } else if (!showPasswordlessEmailForm) {
+      setShowEmailForm(false);
+    }
+  }, [resolvedLoginEmailUi.emailDisplayMode, showPasswordlessEmailForm]);
+
+  const clearStatus = useCallback(() => {
+    setServerError(null);
+    setServerMessage(null);
+  }, []);
+
+  const setError = useCallback((message: string, code?: string, provider?: AuthProviderType) => {
+    const transformedMessage = transformError?.(message, code, provider) ?? message;
+    setServerMessage(null);
+    setServerError(transformedMessage);
+    onError?.(transformedMessage, code, provider);
+  }, [onError, transformError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,17 +129,17 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
 
     const completeTokenLogin = async () => {
       setServerError(null);
-      setServerMessage("Checking your secure sign-in link...");
+      setServerMessage(loginText.checkingSecureSignInLinkMessage);
       try {
         const response = await passwordlessLogin.complete({ token, tenantId });
         if (!response.success || !response.data) {
-          throw new Error(response.message ?? "This sign-in link is invalid or has expired.");
+          throw new Error(response.message ?? loginText.invalidSecureSignInLinkMessage);
         }
 
         if (!cancelled) onAuthenticated?.(passwordlessReturnUrl);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "This sign-in link is invalid or has expired.");
+          setError(err instanceof Error ? err.message : loginText.invalidSecureSignInLinkMessage);
           setServerMessage(null);
         }
       }
@@ -80,26 +149,25 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
     return () => {
       cancelled = true;
     };
-  }, [onAuthenticated, passwordlessLogin, passwordlessReturnUrl, passwordlessToken, setError, tenantId]);
+  }, [loginText, onAuthenticated, passwordlessLogin, passwordlessReturnUrl, passwordlessToken, setError, tenantId]);
 
   const submitPasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError("");
-    setServerError(null);
-    setServerMessage(null);
+    clearStatus();
 
     if (!loginIdentifier.trim()) {
-      setFormError(allowUsernameOrEmail ? "Enter your username or email address." : "Enter your email address.");
+      setFormError(allowUsernameOrEmail ? loginText.emptyUsernameOrEmailMessage : loginText.emptyEmailMessage);
       return;
     }
 
     if (!allowUsernameOrEmail && !isEmail(loginIdentifier)) {
-      setFormError("Enter a valid email address.");
+      setFormError(loginText.invalidEmailMessage);
       return;
     }
 
     if (!password) {
-      setFormError("Password is required.");
+      setFormError(loginText.passwordRequiredMessage);
       return;
     }
 
@@ -114,45 +182,61 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
     }
   };
 
-  const handleExternalLogin = useCallback(async (provider: "Google" | "Apple", credential: string) => {
-    setServerError(null);
-    setServerMessage(null);
+  const runProviderLogin = useCallback(async (provider: "Google" | "Apple" | "Microsoft", credentialFactory: () => Promise<string>) => {
+    if (busyProvider) {
+      return;
+    }
+
+    clearStatus();
     setBusyProvider(provider);
+
     try {
+      const credential = await credentialFactory();
       await externalLogin(provider, credential, tenantId);
       onAuthenticated?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : `${provider} login failed. Please try again.`);
+      if (err instanceof AuthApiError) {
+        setError(err.message, err.code, provider);
+      } else {
+        setError(
+          err instanceof Error ? err.message : formatAuthText(loginText.providerLoginFailedMessage, { provider }),
+          undefined,
+          provider
+        );
+      }
     } finally {
       setBusyProvider(null);
     }
-  }, [externalLogin, onAuthenticated, setError, tenantId]);
+  }, [busyProvider, clearStatus, externalLogin, loginText.providerLoginFailedMessage, onAuthenticated, setError, tenantId]);
 
   const handleAppleLogin = async () => {
     if (!appleClientId) return;
 
-    try {
-      const credential = await signInWithApple(appleClientId, appleRedirectPath, appleRedirectOrigin);
-      await handleExternalLogin("Apple", credential);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Apple sign-in was cancelled or failed.");
-    }
+    await runProviderLogin("Apple", () => signInWithApple(appleClientId, appleRedirectPath, appleRedirectOrigin));
+  };
+
+  const handleMicrosoftLogin = async () => {
+    if (!microsoftClientId || !microsoftAuthority) return;
+
+    await runProviderLogin("Microsoft", async () => {
+      const result = await signInWithMicrosoft(microsoftClientId, microsoftAuthority, microsoftRedirectPath);
+      return result.credential;
+    });
   };
 
   const requestPasswordlessCode = async (loginValue: string) => {
     setPasswordlessBusy(true);
-    setServerError(null);
-    setServerMessage(null);
+    clearStatus();
     try {
       const response = await passwordlessLogin.begin({ login: loginValue || "", deliveryMode: "CodeAndLink", returnUrl: passwordlessCodeReturnUrl });
       if (!response.success || !response.data) {
-        throw new Error(response.message ?? "Could not send a sign-in code.");
+        throw new Error(response.message ?? loginText.passwordlessRequestFailedMessage);
       }
 
       setPasswordlessChallengeId(response.data.challengeId ?? null);
-      setServerMessage(response.data.message ?? "If this email is verified, we sent a secure sign-in code.");
+      setServerMessage(response.data.message ?? loginText.passwordlessRequestSuccessMessage);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send a sign-in code.");
+      setError(err instanceof Error ? err.message : loginText.passwordlessRequestFailedMessage);
     } finally {
       setPasswordlessBusy(false);
     }
@@ -160,71 +244,131 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
 
   const completePasswordlessCode = async (code: string) => {
     if (!passwordlessChallengeId) {
-      setError("Please request a sign-in code first.");
+      setError(loginText.passwordlessRequestPromptMessage);
       return;
     }
 
     setPasswordlessBusy(true);
-    setServerError(null);
-    setServerMessage(null);
+    clearStatus();
     try {
       const response = await passwordlessLogin.complete({ challengeId: passwordlessChallengeId, code, tenantId, switchToCurrentTenant: true });
       if (!response.success || !response.data) {
-        throw new Error(response.message ?? "This sign-in code is invalid or has expired.");
+        throw new Error(response.message ?? loginText.passwordlessCodeInvalidMessage);
       }
 
       onAuthenticated?.(passwordlessCodeReturnUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "This sign-in code is invalid or has expired.");
+      setError(err instanceof Error ? err.message : loginText.passwordlessCodeInvalidMessage);
     } finally {
       setPasswordlessBusy(false);
     }
   };
 
+  const openEmailLogin = () => {
+    clearStatus();
+    setShowPasswordlessEmailForm(false);
+    setShowEmailForm(true);
+  };
+
+  const emailLoginSection = (
+    <div className="bt-auth-login-email-section">
+      <form onSubmit={submitPasswordLogin} noValidate>
+        {resolvedLoginEmailUi.emailDisplayMode === "button" && (
+          <button type="button" className="btn btn-link px-0 mb-3" onClick={() => setShowEmailForm(false)}>
+            {loginText.backToLoginOptionsLabel}
+          </button>
+        )}
+        {formError && <div className="alert alert-danger py-2">{formError}</div>}
+        <div className="mb-3">
+          <label className="form-label">{allowUsernameOrEmail ? loginText.usernameOrEmailLabel : loginText.emailLabel}</label>
+          <input
+            type={allowUsernameOrEmail ? "text" : "email"}
+            className="form-control"
+            value={loginIdentifier}
+            onChange={event => setLoginIdentifier(event.target.value)}
+            autoComplete={allowUsernameOrEmail ? "username" : "email"}
+          />
+        </div>
+        <PasswordField className="mb-3" label={passwordLoginText.passwordLabel ?? loginText.passwordLabel} value={password} autoComplete="current-password" onChange={setPassword} />
+        <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
+          {isSubmitting ? passwordLoginText.submittingLabel ?? loginText.signingInLabel : passwordLoginText.submitLabel ?? loginText.signInLabel}
+        </button>
+      </form>
+      <div className="border-top mt-4 pt-4">
+        <button
+          type="button"
+          className="btn btn-link p-0 small"
+          onClick={() => {
+            clearStatus();
+            setShowPasswordlessEmailForm(true);
+            setShowEmailForm(false);
+          }}
+        >
+          {loginText.passwordlessModeLabel}
+        </button>
+      </div>
+    </div>
+  );
+
+  const emailLoginTrigger = (
+    <AuthProviderButton
+      variant="email"
+      label={emailLoginButtonLabel ?? defaultEmailButtonLabel}
+      disabled={busyProvider !== null}
+      onClick={openEmailLogin}
+    />
+  );
+
+  const externalLoginSection = (
+    <ExternalAuthButtonList
+      providerUi={providerUi}
+      googleClientId={googleClientId}
+      appleClientId={appleClientId}
+      microsoftClientId={microsoftClientId}
+      microsoftAuthority={microsoftAuthority}
+      googleText="continue_with"
+      appleLabel={loginText.continueWithAppleLabel}
+      appleBusyLabel={loginText.openingAppleLabel}
+      microsoftLabel={loginText.continueWithMicrosoftLabel}
+      microsoftBusyLabel={loginText.openingMicrosoftLabel}
+      busyProvider={busyProvider}
+      onGoogleCredential={credential => void runProviderLogin("Google", async () => credential)}
+      onAppleClick={() => void handleAppleLogin()}
+      onMicrosoftClick={() => void handleMicrosoftLogin()}
+      onError={message => setError(message, undefined, "Google")}
+      textOverrides={textOverrides}
+    />
+  );
+
+  const inlineSections = resolvedLoginEmailUi.emailPlacement === "first"
+    ? [emailLoginSection, externalLoginSection]
+    : [externalLoginSection, emailLoginSection];
+
   return (
-    <div className="bt-auth-login-panel">
+    <div className={["bt-auth-login-panel", className].filter(Boolean).join(" ")}>
       {serverError && <div className="alert alert-danger">{serverError}</div>}
       {serverMessage && <div className="alert alert-info">{serverMessage}</div>}
 
-      {!showEmailForm && !showPasswordlessEmailForm && (
+      {!showPasswordlessEmailForm && resolvedLoginEmailUi.emailDisplayMode === "button" && !showEmailForm && (
         <div className="d-grid gap-3 justify-items-center">
-          {googleClientId && <GoogleCredentialButton clientId={googleClientId} text="continue_with" onCredential={credential => void handleExternalLogin("Google", credential)} onError={setError} />}
-          {appleClientId && (
-            <AuthProviderButton variant="apple" label="Continue with Apple" busyLabel="Opening Apple..." busy={busyProvider === "Apple"} onClick={() => void handleAppleLogin()} />
-          )}
-          <AuthProviderButton variant="email" label={emailLoginButtonLabel ?? (allowUsernameOrEmail ? "Username/Email Login" : "Continue with Email")} onClick={() => setShowEmailForm(true)} />
+          {resolvedLoginEmailUi.emailPlacement === "first" && emailLoginTrigger}
+          {externalLoginSection}
+          {resolvedLoginEmailUi.emailPlacement === "last" && emailLoginTrigger}
         </div>
       )}
 
-      {showEmailForm && (
-        <>
-          <form onSubmit={submitPasswordLogin} noValidate>
-            <button type="button" className="btn btn-link px-0 mb-3" onClick={() => setShowEmailForm(false)}>
-              Back to login options
-            </button>
-            {formError && <div className="alert alert-danger py-2">{formError}</div>}
-            <div className="mb-3">
-              <label className="form-label">{allowUsernameOrEmail ? "Username / Email" : "Email"}</label>
-              <input type={allowUsernameOrEmail ? "text" : "email"} className="form-control" value={loginIdentifier} onChange={event => setLoginIdentifier(event.target.value)} autoComplete={allowUsernameOrEmail ? "username" : "email"} />
+      {!showPasswordlessEmailForm && resolvedLoginEmailUi.emailDisplayMode === "button" && showEmailForm && emailLoginSection}
+
+      {!showPasswordlessEmailForm && resolvedLoginEmailUi.emailDisplayMode === "inline" && (
+        <div className="d-grid gap-4">
+          {inlineSections[0]}
+          {resolvedProviderUi.length > 0 && (
+            <div className="text-center text-body-secondary small" aria-hidden="true">
+              {resolvedLoginEmailUi.separatorText}
             </div>
-            <PasswordField className="mb-3" label="Password" value={password} autoComplete="current-password" onChange={setPassword} />
-            <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
-              {isSubmitting ? "Signing in..." : "Sign in"}
-            </button>
-          </form>
-          <div className="border-top mt-4 pt-4">
-            <button
-              type="button"
-              className="btn btn-link p-0 small"
-              onClick={() => {
-                setShowEmailForm(false);
-                setShowPasswordlessEmailForm(true);
-              }}
-            >
-              Send a one-time login code via email
-            </button>
-          </div>
-        </>
+          )}
+          {inlineSections[1]}
+        </div>
       )}
 
       {showPasswordlessEmailForm && (
@@ -237,18 +381,23 @@ export function LoginPanel({ googleClientId, appleClientId, appleRedirectPath = 
               setShowEmailForm(true);
             }}
           >
-            Back to Login
+            {loginText.backToPasswordLoginLabel}
           </button>
-          <h2 className="h6">Send a one-time login code via email</h2>
-          <p className="small text-muted">Useful on mobile, or if you do not want to use your password right now.</p>
-          <PasswordlessEmailLoginForm challengeId={passwordlessChallengeId} busy={passwordlessBusy} onBegin={requestPasswordlessCode} onComplete={completePasswordlessCode} />
+          <h2 className="h6">{loginText.passwordlessHeading}</h2>
+          <p className="small text-muted">{loginText.passwordlessDescription}</p>
+          <PasswordlessEmailLoginForm
+            challengeId={passwordlessChallengeId}
+            busy={passwordlessBusy}
+            emailLabel={passwordlessText.emailLabel}
+            codeLabel={passwordlessText.codeLabel}
+            requestLabel={passwordlessText.requestLabel}
+            requestBusyLabel={passwordlessText.requestBusyLabel}
+            completeLabel={passwordlessText.completeLabel}
+            onBegin={requestPasswordlessCode}
+            onComplete={completePasswordlessCode}
+          />
         </>
       )}
     </div>
   );
 }
-
-
-
-
-

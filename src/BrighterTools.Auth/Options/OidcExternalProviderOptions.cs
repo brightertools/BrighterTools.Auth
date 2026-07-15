@@ -6,6 +6,11 @@ namespace BrighterTools.Auth.Options;
 public sealed class OidcExternalProviderOptions
 {
     /// <summary>
+    /// Gets or sets the browser authority used by client-side login flows when applicable.
+    /// </summary>
+    public string Authority { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the expected token issuer.
     /// </summary>
     public string Issuer { get; set; } = string.Empty;
@@ -19,6 +24,11 @@ public sealed class OidcExternalProviderOptions
     /// Gets or sets the browser-facing client ID used by web login buttons when it differs from the accepted validation audiences.
     /// </summary>
     public string WebClientId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the browser redirect path used by client-side login flows when applicable.
+    /// </summary>
+    public string RedirectPath { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets accepted client IDs / audiences for this provider.

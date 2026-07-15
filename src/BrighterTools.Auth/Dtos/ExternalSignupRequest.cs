@@ -55,6 +55,17 @@ public sealed class ExternalSignupRequest
     public bool ConsentToMarketingEmails { get; init; }
 
     /// <summary>
+    /// Gets a verified fallback email address to use when the provider does not supply a usable one.
+    /// </summary>
+    [EmailAddress]
+    public string? VerifiedEmail { get; init; }
+
+    /// <summary>
+    /// Gets the signup email-verification challenge used to prove ownership of the verified fallback email.
+    /// </summary>
+    public string? EmailVerificationChallengeId { get; init; }
+
+    /// <summary>
     /// Gets host-defined metadata to pass through the signup workflow.
     /// </summary>
     public IDictionary<string, object?> Metadata { get; init; } = new Dictionary<string, object?>();

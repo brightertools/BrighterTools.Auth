@@ -1,4 +1,13 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  defaultAccountLoginMethodsText,
+  defaultEmailVerificationFieldText,
+  formatAuthText,
+  getAuthProviderLabel,
+  resolveAuthProviderUiConfigs,
+  type AuthProviderUiConfig,
+  type AuthUiTextOverrides
+} from "../authUi";
 import { AuthProviderButton } from "./AuthProviderButton";
 import { EmailVerificationField } from "./EmailVerificationField";
 import { GoogleCredentialButton } from "./GoogleCredentialButton";
@@ -6,13 +15,12 @@ import { PasswordField } from "./PasswordField";
 import { isPasswordValid, PasswordRulesChecklist } from "./PasswordRulesChecklist";
 import type { AccountLoginMethods, AuthProviderType, EmailAddressCandidate, EmailChallengeDeliveryMode, LinkedProvider } from "../types/auth";
 
-const providerLabel = (provider: AuthProviderType) => {
-  if (provider === "Password") return "Email / Password";
-  if (provider === "EmailOtp") return "Email code";
-  return provider;
-};
-
 const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
+
+export interface AccountLoginIdentity {
+  value: string;
+  type?: "username" | "email" | "unknown";
+}
 
 export interface CompletePasswordSetupInput {
   email: string;
@@ -25,9 +33,14 @@ export interface ChangePasswordInput {
 }
 
 export interface AccountLoginMethodsPanelProps {
+  className?: string;
+  providerUi?: AuthProviderUiConfig[];
+  textOverrides?: AuthUiTextOverrides;
+  loginIdentity?: AccountLoginIdentity;
   details: AccountLoginMethods | null;
   googleClientId?: string;
   appleEnabled?: boolean;
+  microsoftEnabled?: boolean;
   busyProvider?: AuthProviderType | null;
   busyAction?: string | null;
   emailChallengeId?: string | null;
@@ -51,18 +64,60 @@ export interface AccountLoginMethodsPanelProps {
   onRemovePasswordLogin?: () => Promise<void> | void;
   onGoogleCredential?: (credential: string) => void;
   onAppleClick?: () => void;
+  onMicrosoftClick?: () => void;
   onUnlinkProvider: (provider: LinkedProvider) => Promise<void> | void;
   onError?: (message: string) => void;
 }
 
-const candidateLabel = (candidate: EmailAddressCandidate) => {
-  const source = candidate.sourceProvider ?? candidate.source;
-  return source ? `${candidate.email} (${source})` : candidate.email;
-};
-
-export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled, busyProvider, busyAction, emailChallengeId, verificationCode = "", notificationEmailChallengeId, notificationVerificationCode = "", passwordSetupEmailVerified = false, minimumPasswordLength = 8, onVerificationCodeChange, onClearEmailVerification, onNotificationVerificationCodeChange, onClearNotificationEmailVerification, onRequestLoginEmailChange, onVerifyLoginEmailCode, onRequestNotificationEmailChange, onVerifyNotificationEmailCode, onCompletePasswordSetup, onChangePassword, onRemovePasswordLogin, onGoogleCredential, onAppleClick, onUnlinkProvider, onError }: AccountLoginMethodsPanelProps) {
+export function AccountLoginMethodsPanel({
+  className,
+  providerUi,
+  textOverrides,
+  loginIdentity,
+  details,
+  googleClientId,
+  appleEnabled,
+  microsoftEnabled,
+  busyProvider,
+  busyAction,
+  emailChallengeId,
+  verificationCode = "",
+  notificationEmailChallengeId,
+  notificationVerificationCode = "",
+  passwordSetupEmailVerified = false,
+  minimumPasswordLength = 8,
+  onVerificationCodeChange,
+  onClearEmailVerification,
+  onNotificationVerificationCodeChange,
+  onClearNotificationEmailVerification,
+  onRequestLoginEmailChange,
+  onVerifyLoginEmailCode,
+  onRequestNotificationEmailChange,
+  onVerifyNotificationEmailCode,
+  onCompletePasswordSetup,
+  onChangePassword,
+  onRemovePasswordLogin,
+  onGoogleCredential,
+  onAppleClick,
+  onMicrosoftClick,
+  onUnlinkProvider
+}: AccountLoginMethodsPanelProps) {
+  const accountText = useMemo(() => ({ ...defaultAccountLoginMethodsText, ...textOverrides?.accountLoginMethods }), [textOverrides]);
+  const emailVerificationText = useMemo(() => ({ ...defaultEmailVerificationFieldText, ...textOverrides?.emailVerificationField }), [textOverrides]);
+  const providerLabel = (provider: string | number | null | undefined) => getAuthProviderLabel(provider, textOverrides);
   const providers = details?.providers ?? [];
   const candidates = details?.notificationEmailCandidates ?? [];
+  const resolvedProviderUi = useMemo(() => resolveAuthProviderUiConfigs({
+    providerUi,
+    googleClientId,
+    appleClientId: appleEnabled ? "enabled" : undefined,
+    microsoftClientId: microsoftEnabled ? "enabled" : undefined,
+    microsoftAuthority: microsoftEnabled ? "enabled" : undefined
+  }), [appleEnabled, googleClientId, microsoftEnabled, providerUi]);
+  const candidateLabel = (candidate: EmailAddressCandidate) => {
+    const source = candidate.sourceProvider ?? candidate.source;
+    return source ? `${candidate.email} (${providerLabel(source)})` : candidate.email;
+  };
   const firstProviderEmail = useMemo(() => providers.find(provider => provider.email && !provider.email.endsWith("@privaterelay.appleid.com"))?.email ?? "", [providers]);
   const recommendedNotificationEmail = details?.recommendedNotificationEmail ?? candidates.find(x => x.canUseForNotifications)?.email ?? "";
   const suggestedEmail = details?.primaryEmailIsPrivateRelay ? (recommendedNotificationEmail || firstProviderEmail) : (details?.email || recommendedNotificationEmail || firstProviderEmail);
@@ -79,8 +134,9 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const hasGoogle = providers.some(provider => provider.provider === "Google");
-  const hasApple = providers.some(provider => provider.provider === "Apple");
+  const hasGoogle = providers.some(provider => String(provider.provider) === "Google" || String(provider.provider) === "2");
+  const hasApple = providers.some(provider => String(provider.provider) === "Apple" || String(provider.provider) === "3");
+  const hasMicrosoft = providers.some(provider => String(provider.provider) === "Microsoft" || String(provider.provider) === "4");
   const hasPasswordLogin = details?.hasPassword === true;
   const usableMethodCount = providers.length + (hasPasswordLogin ? 1 : 0);
   const canRemovePasswordLogin = hasPasswordLogin && providers.length > 0;
@@ -94,6 +150,18 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
   const canSavePasswordSetup = setupEmailVerified && setupPasswordValid;
   const emailChallengeActive = !!emailChallengeId;
   const notificationChallengeActive = !!notificationEmailChallengeId;
+  const rawLoginIdentity = loginIdentity?.value?.trim() ?? "";
+  const resolvedLoginIdentityType = loginIdentity?.type && loginIdentity.type !== "unknown"
+    ? loginIdentity.type
+    : (rawLoginIdentity ? (isEmail(rawLoginIdentity) ? "email" : "username") : "unknown");
+  const legacyUsername = useMemo(() => {
+    if (!rawLoginIdentity || resolvedLoginIdentityType !== "username" || isEmail(rawLoginIdentity)) {
+      return "";
+    }
+
+    const currentLoginEmail = details?.email?.trim().toLowerCase() ?? "";
+    return currentLoginEmail && rawLoginIdentity.toLowerCase() === currentLoginEmail ? "" : rawLoginIdentity;
+  }, [details?.email, rawLoginIdentity, resolvedLoginIdentityType]);
 
   useEffect(() => {
     setEmail(suggestedEmail);
@@ -145,7 +213,7 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
   const requestEmailVerification = async (value: string) => {
     const trimmed = value.trim();
     if (!isEmail(trimmed)) {
-      setSetupError("Please enter a valid email address.");
+      setSetupError(accountText.invalidEmailMessage);
       return;
     }
 
@@ -156,7 +224,7 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
   const requestNotificationEmailVerification = async (value: string) => {
     const trimmed = value.trim();
     if (!isEmail(trimmed)) {
-      setNotificationError("Please enter a valid email address.");
+      setNotificationError(accountText.invalidEmailMessage);
       return;
     }
 
@@ -166,12 +234,12 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
 
   const savePasswordSetup = async () => {
     if (!setupEmailVerified) {
-      setSetupError("Please verify this email before saving a password.");
+      setSetupError(accountText.verifyEmailBeforeSavingPasswordMessage);
       return;
     }
 
     if (!setupPasswordValid) {
-      setSetupError("Please complete the password requirements before saving.");
+      setSetupError(accountText.passwordRequirementsBeforeSavingMessage);
       return;
     }
 
@@ -181,7 +249,7 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
 
   const savePasswordChange = async () => {
     if (!changePasswordValid) {
-      setSetupError("Please enter your current password and complete the new password requirements.");
+      setSetupError(accountText.passwordRequirementsBeforeChangingMessage);
       return;
     }
 
@@ -195,7 +263,7 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
 
   const removePasswordLogin = async () => {
     if (!canRemovePasswordLogin) {
-      setSetupError("Add Google, Apple, or another sign-in provider before removing email/password login.");
+      setSetupError(accountText.addProviderBeforePasswordRemovalMessage);
       return;
     }
 
@@ -207,29 +275,29 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
   const showNotificationEmailSetup = !!details?.requiresNotificationEmailSetup || !!details?.notificationEmail || candidates.length > 0;
 
   return (
-    <div className="bt-auth-account-login-methods">
+    <div className={["bt-auth-account-login-methods", className].filter(Boolean).join(" ")}>
       {showNotificationEmailSetup && (
         <section className="border rounded-3 p-3 mb-4">
           {details?.requiresNotificationEmailSetup && (
             <div className="alert alert-warning py-2">
-              <strong>Notification email required.</strong> You chose to hide your Apple ID email address. Please verify an email address so important account notifications do not go to a private relay address.
+              <strong>{accountText.notificationEmailRequiredTitle}</strong> {accountText.notificationEmailRequiredDescription}
             </div>
           )}
           {details?.notificationEmail && !details.requiresNotificationEmailSetup && (
             <div className="alert alert-success py-2 small">
-              Notification email: <strong>{details.notificationEmail}</strong>
+              {accountText.notificationEmailValueLabel} <strong>{details.notificationEmail}</strong>
             </div>
           )}
           <div className="d-flex flex-wrap justify-content-between gap-2 mb-3">
             <div>
-              <h2 className="h6 mb-1">Notification email</h2>
-              <p className="small text-muted mb-0">Used for important account notifications. It can be different from your sign-in provider email.</p>
+              <h2 className="h6 mb-1">{accountText.notificationEmailHeading}</h2>
+              <p className="small text-muted mb-0">{accountText.notificationEmailDescription}</p>
             </div>
-            {notificationEmailVerified ? <span className="badge text-bg-success align-self-start">Verified</span> : <span className="badge text-bg-warning align-self-start">Needs verification</span>}
+            {notificationEmailVerified ? <span className="badge text-bg-success align-self-start">{accountText.verifiedBadgeLabel}</span> : <span className="badge text-bg-warning align-self-start">{accountText.needsVerificationBadgeLabel}</span>}
           </div>
           {candidates.length > 0 && (
             <div className="mb-3">
-              <div className="small fw-semibold mb-2">Suggested verified emails</div>
+              <div className="small fw-semibold mb-2">{accountText.suggestedVerifiedEmailsLabel}</div>
               <div className="d-flex flex-wrap gap-2">
                 {candidates.filter(candidate => candidate.canUseForNotifications).map(candidate => (
                   <button key={candidate.email} type="button" className="btn btn-outline-secondary btn-sm" onClick={() => updateNotificationEmail(candidate.email)}>
@@ -240,7 +308,7 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
             </div>
           )}
           {notificationError && <div className="alert alert-danger py-2">{notificationError}</div>}
-          <label className="form-label">Notification email address</label>
+          <label className="form-label">{accountText.notificationEmailAddressLabel}</label>
           <EmailVerificationField
             email={notificationEmail}
             verified={notificationEmailVerified}
@@ -248,7 +316,17 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
             verificationCode={notificationVerificationCode}
             busySending={busyAction === "notification-email"}
             busyVerifying={busyAction === "verify-notification-code"}
-            successMessage={notificationChallengeActive && !notificationEmailVerified ? "Enter the code we sent to this email address." : undefined}
+            emailPlaceholder={emailVerificationText.emailPlaceholder}
+            codePlaceholder={emailVerificationText.codePlaceholder}
+            sendLabel={emailVerificationText.sendLabel}
+            sendingLabel={emailVerificationText.sendingLabel}
+            verifyLabel={emailVerificationText.verifyLabel}
+            verifyingLabel={emailVerificationText.verifyingLabel}
+            verifiedLabel={emailVerificationText.verifiedLabel}
+            changeEmailAddressLabel={emailVerificationText.changeEmailAddressLabel}
+            changeEmailLabel={emailVerificationText.changeEmailLabel}
+            resendCodeLabel={emailVerificationText.resendCodeLabel}
+            successMessage={notificationChallengeActive && !notificationEmailVerified ? accountText.enterCodeSentMessage : undefined}
             errorMessage={notificationError && !isEmail(notificationEmail) ? notificationError : undefined}
             onEmailChange={updateNotificationEmail}
             onRequestVerification={requestNotificationEmailVerification}
@@ -260,21 +338,28 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
         </section>
       )}
 
+      {legacyUsername && (
+        <section className="border rounded-3 p-3 mb-4">
+          <div className="small text-muted mb-1">{accountText.legacyUsernameLabel}</div>
+          <div className="fw-semibold">{legacyUsername}</div>
+        </section>
+      )}
+
       {!hasPasswordLogin && (
         <section className="border rounded-3 p-3 mb-4">
           <div className="d-flex flex-wrap justify-content-between gap-2 mb-3">
             <div>
-              <h2 className="h6 mb-1">Set up email/password login</h2>
-              <p className="small text-muted mb-0">Verify the email you want to use for password login, then choose a password.</p>
-              {suggestedEmail && <p className="small text-muted mt-2 mb-0">Suggested from your account: {suggestedEmail}</p>}
+              <h2 className="h6 mb-1">{accountText.setupPasswordHeading}</h2>
+              <p className="small text-muted mb-0">{accountText.setupPasswordDescription}</p>
+              {suggestedEmail && <p className="small text-muted mt-2 mb-0">{formatAuthText(accountText.suggestedAccountEmailMessage, { email: suggestedEmail })}</p>}
             </div>
-            <span className="badge text-bg-secondary align-self-start">Not set up</span>
+            <span className="badge text-bg-secondary align-self-start">{accountText.notSetUpBadgeLabel}</span>
           </div>
 
           {setupError && <div className="alert alert-danger py-2">{setupError}</div>}
-          {details?.pendingEmail && <div className="alert alert-warning py-2 small">Pending email verification: {details.pendingEmail}</div>}
+          {details?.pendingEmail && <div className="alert alert-warning py-2 small">{formatAuthText(accountText.pendingEmailVerificationLabel, { email: details.pendingEmail })}</div>}
 
-          <label className="form-label">Email address</label>
+          <label className="form-label">{accountText.emailAddressLabel}</label>
           <EmailVerificationField
             email={email}
             verified={setupEmailVerified}
@@ -282,7 +367,17 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
             verificationCode={verificationCode}
             busySending={busyAction === "email"}
             busyVerifying={busyAction === "verify-code"}
-            successMessage={emailChallengeActive && !setupEmailVerified ? "Enter the code we sent to this email address." : undefined}
+            emailPlaceholder={emailVerificationText.emailPlaceholder}
+            codePlaceholder={emailVerificationText.codePlaceholder}
+            sendLabel={emailVerificationText.sendLabel}
+            sendingLabel={emailVerificationText.sendingLabel}
+            verifyLabel={emailVerificationText.verifyLabel}
+            verifyingLabel={emailVerificationText.verifyingLabel}
+            verifiedLabel={emailVerificationText.verifiedLabel}
+            changeEmailAddressLabel={emailVerificationText.changeEmailAddressLabel}
+            changeEmailLabel={emailVerificationText.changeEmailLabel}
+            resendCodeLabel={emailVerificationText.resendCodeLabel}
+            successMessage={emailChallengeActive && !setupEmailVerified ? accountText.enterCodeSentMessage : undefined}
             errorMessage={setupError && !isEmail(email) ? setupError : undefined}
             onEmailChange={updateEmail}
             onRequestVerification={requestEmailVerification}
@@ -293,22 +388,22 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
           />
           {editingLoginEmail && details?.emailVerified && details.email && (
             <button type="button" className="btn btn-link btn-sm px-0 mt-1 text-decoration-none" onClick={useVerifiedLoginEmail}>
-              use {details.email}
+              {formatAuthText(accountText.useVerifiedEmailLabel, { email: details.email })}
             </button>
           )}
 
           <div className="row g-3 mt-1">
             <div className="col-md-6">
-              <PasswordField label="Password" value={setupPassword} autoComplete="new-password" onChange={setSetupPassword} />
+              <PasswordField label={accountText.passwordLabel} value={setupPassword} autoComplete="new-password" onChange={setSetupPassword} />
             </div>
             <div className="col-md-6">
-              <PasswordField label="Confirm password" value={setupConfirmPassword} autoComplete="new-password" onChange={setSetupConfirmPassword} />
+              <PasswordField label={accountText.confirmPasswordLabel} value={setupConfirmPassword} autoComplete="new-password" onChange={setSetupConfirmPassword} />
             </div>
           </div>
           <PasswordRulesChecklist password={setupPassword} confirmPassword={setupConfirmPassword} minimumLength={minimumPasswordLength} />
 
           <button type="button" className="btn btn-primary mt-3" disabled={busyAction === "complete-password-setup" || !canSavePasswordSetup} onClick={() => void savePasswordSetup()}>
-            {busyAction === "complete-password-setup" ? "Saving..." : "Save email/password login"}
+            {busyAction === "complete-password-setup" ? accountText.savingLabel : accountText.saveEmailPasswordLoginLabel}
           </button>
         </section>
       )}
@@ -318,13 +413,13 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
           <section className="border rounded-3 p-3 mb-4">
             <div className="d-flex flex-wrap justify-content-between gap-2 mb-3">
               <div>
-                <h2 className="h6 mb-1">Login email</h2>
-                <p className="small text-muted mb-0">Used for email/password login, password reset, and passwordless sign-in codes.</p>
+                <h2 className="h6 mb-1">{accountText.loginEmailHeading}</h2>
+                <p className="small text-muted mb-0">{accountText.loginEmailDescription}</p>
               </div>
-              {usingPrivateRelayEmail ? <span className="badge text-bg-warning align-self-start">Private relay</span> : passwordLoginEmailVerified ? <span className="badge text-bg-success align-self-start">Verified</span> : <span className="badge text-bg-warning align-self-start">Needs verification</span>}
+              {usingPrivateRelayEmail ? <span className="badge text-bg-warning align-self-start">{accountText.privateRelayBadgeLabel}</span> : passwordLoginEmailVerified ? <span className="badge text-bg-success align-self-start">{accountText.verifiedBadgeLabel}</span> : <span className="badge text-bg-warning align-self-start">{accountText.needsVerificationBadgeLabel}</span>}
             </div>
-            {details?.pendingEmail && <div className="alert alert-warning py-2 small">Pending email verification: {details.pendingEmail}</div>}
-            <label className="form-label">Email address</label>
+            {details?.pendingEmail && <div className="alert alert-warning py-2 small">{formatAuthText(accountText.pendingEmailVerificationLabel, { email: details.pendingEmail })}</div>}
+            <label className="form-label">{accountText.emailAddressLabel}</label>
             <EmailVerificationField
               email={email}
               verified={passwordLoginEmailVerified}
@@ -332,7 +427,17 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
               verificationCode={verificationCode}
               busySending={busyAction === "email"}
               busyVerifying={busyAction === "verify-code"}
-              successMessage={emailChallengeActive && !passwordLoginEmailVerified ? "Enter the code we sent to this email address." : undefined}
+              emailPlaceholder={emailVerificationText.emailPlaceholder}
+              codePlaceholder={emailVerificationText.codePlaceholder}
+              sendLabel={emailVerificationText.sendLabel}
+              sendingLabel={emailVerificationText.sendingLabel}
+              verifyLabel={emailVerificationText.verifyLabel}
+              verifyingLabel={emailVerificationText.verifyingLabel}
+              verifiedLabel={emailVerificationText.verifiedLabel}
+              changeEmailAddressLabel={emailVerificationText.changeEmailAddressLabel}
+              changeEmailLabel={emailVerificationText.changeEmailLabel}
+              resendCodeLabel={emailVerificationText.resendCodeLabel}
+              successMessage={emailChallengeActive && !passwordLoginEmailVerified ? accountText.enterCodeSentMessage : undefined}
               errorMessage={setupError && !isEmail(email) ? setupError : undefined}
               onEmailChange={updateEmail}
               onRequestVerification={requestEmailVerification}
@@ -346,90 +451,111 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
           <section className="border rounded-3 p-3 mb-4">
             <div className="d-flex flex-wrap justify-content-between gap-2">
               <div>
-                <h2 className="h6 mb-1">Password</h2>
-                <p className="small text-muted mb-0">Change your email/password login password.</p>
+                <h2 className="h6 mb-1">{accountText.passwordHeading}</h2>
+                <p className="small text-muted mb-0">{accountText.passwordDescription}</p>
               </div>
-              <span className="badge text-bg-success align-self-start">Enabled</span>
+              <span className="badge text-bg-success align-self-start">{accountText.enabledBadgeLabel}</span>
             </div>
             {!showChangePassword && (
               <button type="button" className="btn btn-outline-primary mt-3" disabled={!details?.email} onClick={() => setShowChangePassword(true)}>
-                Change password
+                {accountText.changePasswordLabel}
               </button>
             )}
             {showChangePassword && (
               <div className="mt-3">
                 <div className="mb-3">
-                  <label className="form-label">Current password</label>
+                  <label className="form-label">{accountText.currentPasswordLabel}</label>
                   <input type="password" className="form-control" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" />
                 </div>
                 <div className="row g-3">
                   <div className="col-md-6">
-                    <PasswordField label="New password" value={newPassword} autoComplete="new-password" onChange={setNewPassword} />
+                    <PasswordField label={accountText.newPasswordLabel} value={newPassword} autoComplete="new-password" onChange={setNewPassword} />
                   </div>
                   <div className="col-md-6">
-                    <PasswordField label="Confirm new password" value={confirmNewPassword} autoComplete="new-password" onChange={setConfirmNewPassword} />
+                    <PasswordField label={accountText.confirmNewPasswordLabel} value={confirmNewPassword} autoComplete="new-password" onChange={setConfirmNewPassword} />
                   </div>
                 </div>
                 <PasswordRulesChecklist password={newPassword} confirmPassword={confirmNewPassword} minimumLength={minimumPasswordLength} />
                 <div className="d-flex flex-wrap gap-2 mt-3">
                   <button type="button" className="btn btn-primary" disabled={busyAction === "change-password" || !changePasswordValid} onClick={() => void savePasswordChange()}>
-                    {busyAction === "change-password" ? "Updating..." : "Update password"}
+                    {busyAction === "change-password" ? accountText.updatingLabel : accountText.updatePasswordLabel}
                   </button>
                   <button type="button" className="btn btn-outline-secondary" disabled={busyAction === "change-password"} onClick={() => setShowChangePassword(false)}>
-                    Cancel
+                    {accountText.cancelLabel}
                   </button>
                 </div>
               </div>
             )}
             <div className="border-top mt-4 pt-3">
-              <h3 className="h6 mb-1">Remove email/password login</h3>
-              <p className="small text-muted mb-2">Your verified email remains on your account, but you will no longer be able to sign in with a password.</p>
-              {!canRemovePasswordLogin && <p className="small text-warning mb-2">Connect Google or Apple before removing your password login.</p>}
+              <h3 className="h6 mb-1">{accountText.removePasswordHeading}</h3>
+              <p className="small text-muted mb-2">{accountText.removePasswordDescription}</p>
+              {!canRemovePasswordLogin && <p className="small text-warning mb-2">{accountText.connectProviderBeforeRemovingPasswordMessage}</p>}
               <button type="button" className="btn btn-outline-danger btn-sm" disabled={busyAction === "remove-password" || !canRemovePasswordLogin} onClick={() => setShowRemovePasswordModal(true)}>
-                {busyAction === "remove-password" ? "Removing..." : "Remove email/password login"}
+                {busyAction === "remove-password" ? accountText.removingLabel : accountText.removePasswordLoginLabel}
               </button>
             </div>
           </section>
         </>
       )}
 
-      <h2 className="h6 mt-3">Connected providers</h2>
+      <h2 className="h6 mt-3">{accountText.connectedProvidersHeading}</h2>
       <div className="list-group mb-4">
         {providers.length === 0 ? (
-          <div className="list-group-item text-muted small">No external providers are connected yet.</div>
+          <div className="list-group-item text-muted small">{accountText.noConnectedProvidersMessage}</div>
         ) : providers.map(provider => (
           <div className="list-group-item d-flex flex-wrap align-items-center justify-content-between gap-2" key={`${provider.provider}-${provider.providerSubject}`}>
             <div>
               <strong>{providerLabel(provider.provider)}</strong>
               {provider.email && <div className="small text-muted">{provider.email}</div>}
-              {provider.emailVerified && <div className="small text-success fw-semibold">Verified by {providerLabel(provider.provider)}</div>}
+              {provider.emailVerified && <div className="small text-success fw-semibold">{formatAuthText(accountText.verifiedByProviderMessage, { provider: providerLabel(provider.provider) })}</div>}
             </div>
             <button type="button" className="btn btn-outline-danger btn-sm" disabled={busyProvider === provider.provider || usableMethodCount <= 1} onClick={() => void onUnlinkProvider(provider)}>
-              Remove
+              {accountText.removeLabel}
             </button>
           </div>
         ))}
       </div>
 
       <div className="row g-3">
-        {googleClientId && (
-          <div className="col-md-6">
-            <div className="border rounded-3 p-3 h-100">
-              <h3 className="h6">Google</h3>
-              <p className="small text-muted">{hasGoogle ? "Google is connected." : "Connect your Google account for quick sign-in."}</p>
-              {!hasGoogle && onGoogleCredential && <GoogleCredentialButton clientId={googleClientId} text="continue_with" onCredential={onGoogleCredential} onError={onError} />}
-            </div>
-          </div>
-        )}
-        {appleEnabled && (
-          <div className="col-md-6">
-            <div className="border rounded-3 p-3 h-100">
-              <h3 className="h6">Apple</h3>
-              <p className="small text-muted">{hasApple ? "Apple is connected." : "Connect Sign in with Apple."}</p>
-              {!hasApple && onAppleClick && <AuthProviderButton variant="apple" label="Connect Apple" busyLabel="Opening Apple..." busy={busyProvider === "Apple"} onClick={() => void onAppleClick()} />}
-            </div>
-          </div>
-        )}
+        {resolvedProviderUi.map(config => {
+          if (config.provider === "Google" && googleClientId) {
+            return (
+              <div className="col-md-6" key={config.provider}>
+                <div className="border rounded-3 p-3 h-100">
+                  <h3 className="h6">{providerLabel("Google")}</h3>
+                  <p className="small text-muted">{hasGoogle ? formatAuthText(accountText.providerConnectedDescription, { provider: providerLabel("Google") }) : formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Google") })}</p>
+                  {!hasGoogle && onGoogleCredential && <GoogleCredentialButton clientId={googleClientId} text={config.googleText ?? "continue_with"} onCredential={onGoogleCredential} onError={() => undefined} />}
+                </div>
+              </div>
+            );
+          }
+
+          if (config.provider === "Apple" && appleEnabled) {
+            return (
+              <div className="col-md-6" key={config.provider}>
+                <div className="border rounded-3 p-3 h-100">
+                  <h3 className="h6">{providerLabel("Apple")}</h3>
+                  <p className="small text-muted">{hasApple ? formatAuthText(accountText.providerConnectedDescription, { provider: providerLabel("Apple") }) : formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Apple") })}</p>
+                  {!hasApple && onAppleClick && <AuthProviderButton variant="apple" label={config.label ?? accountText.connectAppleLabel} busyLabel={config.busyLabel ?? accountText.openingAppleLabel} busy={busyProvider === "Apple"} onClick={() => void onAppleClick()} />}
+                </div>
+              </div>
+            );
+          }
+
+          if (config.provider === "Microsoft" && microsoftEnabled) {
+            return (
+              <div className="col-md-6" key={config.provider}>
+                <div className="border rounded-3 p-3 h-100">
+                  <h3 className="h6">{providerLabel("Microsoft")}</h3>
+                  <p className="small text-muted">{hasMicrosoft ? formatAuthText(accountText.providerConnectedDescription, { provider: providerLabel("Microsoft") }) : formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Microsoft") })}</p>
+                  {!hasMicrosoft && onMicrosoftClick && <AuthProviderButton variant="microsoft" label={config.label ?? accountText.connectMicrosoftLabel} busyLabel={config.busyLabel ?? accountText.openingMicrosoftLabel} busy={busyProvider === "Microsoft"} onClick={() => void onMicrosoftClick()} />}
+                </div>
+              </div>
+            );
+          }
+
+          return null;
+        })}
       </div>
 
       {showRemovePasswordModal && (
@@ -438,18 +564,18 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
           <div className="modal-dialog modal-dialog-centered position-relative" style={{ zIndex: 1060 }} role="document">
             <div className="modal-content shadow-lg">
               <div className="modal-header">
-                <h2 className="modal-title h5" id="bt-auth-remove-password-title">Remove email login?</h2>
+                <h2 className="modal-title h5" id="bt-auth-remove-password-title">{accountText.removePasswordModalTitle}</h2>
                 <button type="button" className="btn-close" aria-label="Close" disabled={busyAction === "remove-password"} onClick={() => setShowRemovePasswordModal(false)} />
               </div>
               <div className="modal-body">
-                <p className="text-danger fw-semibold mb-2">This removes email/password login from your account.</p>
-                <p className="mb-2">Your current session will stay active, but next time you will need to sign in with another connected provider.</p>
-                <p className="small text-muted mb-0">Your verified email address will remain on your account for notifications, passwordless email sign-in, and account records.</p>
+                <p className="text-danger fw-semibold mb-2">{accountText.removePasswordModalWarning}</p>
+                <p className="mb-2">{accountText.removePasswordModalBody}</p>
+                <p className="small text-muted mb-0">{accountText.removePasswordModalFooter}</p>
               </div>
               <div className="modal-footer justify-content-between">
-                <button type="button" className="btn btn-outline-secondary" disabled={busyAction === "remove-password"} onClick={() => setShowRemovePasswordModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-outline-secondary" disabled={busyAction === "remove-password"} onClick={() => setShowRemovePasswordModal(false)}>{accountText.cancelLabel}</button>
                 <button type="button" className="btn btn-danger" disabled={busyAction === "remove-password"} onClick={() => void removePasswordLogin()}>
-                  {busyAction === "remove-password" ? "Removing..." : "Remove email login"}
+                  {busyAction === "remove-password" ? accountText.removingLabel : accountText.removeEmailLoginLabel}
                 </button>
               </div>
             </div>
@@ -459,3 +585,4 @@ export function AccountLoginMethodsPanel({ details, googleClientId, appleEnabled
     </div>
   );
 }
+

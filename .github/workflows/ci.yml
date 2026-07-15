@@ -1,4 +1,4 @@
-name: ci
+﻿name: ci
 
 on:
   push:
@@ -6,9 +6,10 @@ on:
       - main
       - master
   pull_request:
+  workflow_dispatch:
 
 jobs:
-  build-test:
+  build-test-pack:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,10 +24,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          registry-url: https://registry.npmjs.org
 
       - name: Restore
-        run: dotnet restore ./BrighterTools.Auth.sln
+        run: dotnet restore ./BrighterTools.Auth.sln --configfile ./NuGet.config
 
       - name: Build
         run: dotnet build ./BrighterTools.Auth.sln --configuration Release --no-restore
@@ -42,5 +44,20 @@ jobs:
         working-directory: ./react/brightertools-auth-react
         run: npm test
 
+      - name: Build React companion package
+        working-directory: ./react/brightertools-auth-react
+        run: npm run build
+
+      - name: Validate React npm package
+        working-directory: ./react/brightertools-auth-react
+        run: npm run pack:dry-run
+
       - name: Pack NuGet package
-        run: dotnet pack ./src/BrighterTools.Auth/BrighterTools.Auth.csproj --configuration Release --no-build -o ./artifacts
+        run: dotnet pack ./src/BrighterTools.Auth/BrighterTools.Auth.csproj --configuration Release --no-build --output ./artifacts/nuget --configfile ./NuGet.config
+
+      - name: Upload NuGet artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: brightertools-auth-nuget
+          path: ./artifacts/nuget/*
+          if-no-files-found: error

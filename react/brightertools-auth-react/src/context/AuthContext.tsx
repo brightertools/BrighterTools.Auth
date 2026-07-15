@@ -4,6 +4,7 @@ import type { ExternalSignupRequest } from "../types/api";
 import type { AuthApiClient } from "../services/createAuthApi";
 import type { TokenStorage } from "../services/tokenStorage";
 import type { AuthProviderType, AuthSession } from "../types/auth";
+import { toAuthApiError } from "../errors/AuthApiError";
 
 export type JwtPayload = Record<string, unknown> & { exp?: number; sub?: string };
 
@@ -149,19 +150,19 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
 
   const login = useCallback(async (loginValue: string, password: string, tenantId?: string) => {
     const response = await api.loginWithPassword({ login: loginValue, password, tenantId });
-    if (!response.success || !response.data?.session) throw new Error(response.message ?? "Login failed.");
+    if (!response.success || !response.data?.session) throw toAuthApiError(response.message ?? "Login failed.", response.code);
     setAuthenticatedSession(response.data.session);
   }, [api, setAuthenticatedSession]);
 
   const externalLogin = useCallback(async (provider: AuthProviderType, credential: string, tenantId?: string) => {
     const response = await api.loginWithExternalProvider({ provider, credential, tenantId });
-    if (!response.success || !response.data?.session) throw new Error(response.message ?? "Login failed.");
+    if (!response.success || !response.data?.session) throw toAuthApiError(response.message ?? "Login failed.", response.code);
     setAuthenticatedSession(response.data.session);
   }, [api, setAuthenticatedSession]);
 
   const externalSignup = useCallback(async (request: ExternalSignupRequest) => {
     const response = await api.signupWithExternalProvider(request);
-    if (!response.success || !response.data?.session) throw new Error(response.message ?? "Signup failed.");
+    if (!response.success || !response.data?.session) throw toAuthApiError(response.message ?? "Signup failed.", response.code);
     setAuthenticatedSession(response.data.session);
   }, [api, setAuthenticatedSession]);
 

@@ -1,28 +1,63 @@
-import { AuthProviderButton } from "./AuthProviderButton";
-import { GoogleCredentialButton } from "./GoogleCredentialButton";
+import { ExternalAuthButtonList } from "./ExternalAuthButtonList";
+import type { AuthProviderUiConfig, AuthUiTextOverrides, GoogleButtonText } from "../authUi";
 import type { AuthProviderType } from "../types/auth";
 
 export interface ExternalAuthOptionsProps {
+  providerUi?: AuthProviderUiConfig[];
   googleClientId?: string;
+  appleClientId?: string;
   appleEnabled?: boolean;
-  googleText?: "signin_with" | "signup_with" | "continue_with" | "signin";
+  microsoftClientId?: string;
+  microsoftAuthority?: string;
+  googleText?: GoogleButtonText;
   appleLabel?: string;
+  appleBusyLabel?: string;
+  microsoftLabel?: string;
+  microsoftBusyLabel?: string;
   busyProvider?: AuthProviderType | null;
-  onGoogleCredential: (credential: string) => void;
+  onGoogleCredential?: (credential: string) => void;
   onAppleClick?: () => void;
+  onMicrosoftClick?: () => void;
   onError?: (message: string) => void;
+  textOverrides?: AuthUiTextOverrides;
 }
 
-export function ExternalAuthOptions({ googleClientId, appleEnabled, googleText = "continue_with", appleLabel = "Continue with Apple", busyProvider, onGoogleCredential, onAppleClick, onError }: ExternalAuthOptionsProps) {
+export function ExternalAuthOptions({
+  providerUi,
+  googleClientId,
+  appleClientId,
+  appleEnabled,
+  microsoftClientId,
+  microsoftAuthority,
+  googleText = "continue_with",
+  appleLabel = "Continue with Apple",
+  appleBusyLabel = "Opening Apple...",
+  microsoftLabel = "Continue with Microsoft",
+  microsoftBusyLabel = "Opening Microsoft...",
+  busyProvider,
+  onGoogleCredential,
+  onAppleClick,
+  onMicrosoftClick,
+  onError
+}: ExternalAuthOptionsProps) {
   return (
-    <div className="d-grid gap-3 bt-auth-external-options">
-      {googleClientId && (
-        <GoogleCredentialButton clientId={googleClientId} text={googleText} onCredential={onGoogleCredential} onError={onError} />
-      )}
-      {appleEnabled && onAppleClick && (
-        <AuthProviderButton variant="apple" label={appleLabel} busyLabel="Opening Apple..." busy={busyProvider === "Apple"} onClick={onAppleClick} />
-      )}
-    </div>
+    <ExternalAuthButtonList
+      providerUi={providerUi}
+      googleClientId={googleClientId}
+      appleClientId={appleClientId ?? (appleEnabled ? "enabled" : undefined)}
+      microsoftClientId={microsoftClientId}
+      microsoftAuthority={microsoftAuthority}
+      googleText={googleText}
+      appleLabel={appleLabel}
+      appleBusyLabel={appleBusyLabel}
+      microsoftLabel={microsoftLabel}
+      microsoftBusyLabel={microsoftBusyLabel}
+      busyProvider={busyProvider}
+      onGoogleCredential={onGoogleCredential}
+      onAppleClick={onAppleClick}
+      onMicrosoftClick={onMicrosoftClick}
+      onError={onError}
+    />
   );
 }
 

@@ -1,4 +1,4 @@
-export type AuthProviderButtonVariant = "apple" | "email";
+export type AuthProviderButtonVariant = "apple" | "email" | "microsoft";
 
 export interface AuthProviderButtonProps {
   variant: AuthProviderButtonVariant;
@@ -25,11 +25,22 @@ function AtIcon() {
   );
 }
 
+function MicrosoftIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" width="1em" height="1em" viewBox="0 0 23 23" fill="currentColor">
+      <path d="M1 1h10v10H1zM12 1h10v10H12zM1 12h10v10H1zM12 12h10v10H12z" />
+    </svg>
+  );
+}
+
 export function AuthProviderButton({ variant, label, busyLabel, busy, disabled, onClick }: AuthProviderButtonProps) {
   const isApple = variant === "apple";
+  const isMicrosoft = variant === "microsoft";
   const colors = isApple
     ? { background: "#050505", border: "#050505", color: "#ffffff", iconColor: "#ffffff" }
-    : { background: "#e5e7eb", border: "#cbd5e1", color: "#1f2937", iconColor: "#374151" };
+    : isMicrosoft
+      ? { background: "#ffffff", border: "#cbd5e1", color: "#111827", iconColor: "#2563eb" }
+      : { background: "#e5e7eb", border: "#cbd5e1", color: "#1f2937", iconColor: "#374151" };
 
   return (
     <div className="bt-auth-provider-button-shell" style={{ display: "flex", justifyContent: "center", width: "100%" }}>
@@ -54,7 +65,7 @@ export function AuthProviderButton({ variant, label, busyLabel, busy, disabled, 
         }}
       >
         <span style={{ color: colors.iconColor, display: "inline-flex", fontSize: 18, lineHeight: 1 }}>
-          {isApple ? <AppleIcon /> : <AtIcon />}
+          {isApple ? <AppleIcon /> : isMicrosoft ? <MicrosoftIcon /> : <AtIcon />}
         </span>
         <span>{busy && busyLabel ? busyLabel : label}</span>
       </button>

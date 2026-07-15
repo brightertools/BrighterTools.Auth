@@ -15,6 +15,9 @@ export interface EmailVerificationFieldProps {
   verifyLabel?: string;
   verifyingLabel?: string;
   verifiedLabel?: string;
+  changeEmailAddressLabel?: string;
+  changeEmailLabel?: string;
+  resendCodeLabel?: string;
   successMessage?: string;
   errorMessage?: string;
   autoSubmitCodeLength?: number;
@@ -30,7 +33,34 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
 }
 
-export function EmailVerificationField({ email, verified, challengeActive = false, verificationCode = "", busySending = false, busyVerifying = false, disabled = false, emailPlaceholder = "Enter your email address", codePlaceholder = "Enter verification code", sendLabel = "Verify email", sendingLabel = "Sending...", verifyLabel = "Verify code", verifyingLabel = "Verifying...", verifiedLabel = "Verified", successMessage, errorMessage, autoSubmitCodeLength = 6, onEmailChange, onRequestVerification, onVerificationCodeChange, onVerifyCode, onChangeEmail, onResend }: EmailVerificationFieldProps) {
+export function EmailVerificationField({
+  email,
+  verified,
+  challengeActive = false,
+  verificationCode = "",
+  busySending = false,
+  busyVerifying = false,
+  disabled = false,
+  emailPlaceholder = "Enter your email address",
+  codePlaceholder = "Enter verification code",
+  sendLabel = "Verify email",
+  sendingLabel = "Sending...",
+  verifyLabel = "Verify code",
+  verifyingLabel = "Verifying...",
+  verifiedLabel = "Verified",
+  changeEmailAddressLabel = "change email address",
+  changeEmailLabel = "change email",
+  resendCodeLabel = "re-send code",
+  successMessage,
+  errorMessage,
+  autoSubmitCodeLength = 6,
+  onEmailChange,
+  onRequestVerification,
+  onVerificationCodeChange,
+  onVerifyCode,
+  onChangeEmail,
+  onResend
+}: EmailVerificationFieldProps) {
   const lastAutoSubmittedCodeRef = useRef("");
   const verifyingRef = useRef(false);
   const isBusy = busySending || busyVerifying;
@@ -80,7 +110,7 @@ export function EmailVerificationField({ email, verified, challengeActive = fals
           <span className="input-group-text bg-success text-white fw-semibold">{verifiedLabel}</span>
         </div>
         <button type="button" className="btn btn-link btn-sm px-0 text-decoration-none text-primary" disabled={disabled || isBusy} onClick={changeEmail}>
-          change email address
+          {changeEmailAddressLabel}
         </button>
       </div>
     );
@@ -139,10 +169,10 @@ export function EmailVerificationField({ email, verified, challengeActive = fals
       {challengeActive && (
         <div className="d-flex flex-wrap gap-2 mt-1 small">
           <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none text-primary" disabled={disabled || isBusy} onClick={changeEmail}>
-            change email
+            {changeEmailLabel}
           </button>
           <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none text-primary" disabled={disabled || busySending} onClick={() => void (onResend ? onResend() : sendVerification())}>
-            re-send code
+            {resendCodeLabel}
           </button>
         </div>
       )}

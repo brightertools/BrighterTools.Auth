@@ -1,4 +1,5 @@
 using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Constants;
 using BrighterTools.Auth.Models;
 using BrighterTools.Auth.Options;
 using Microsoft.Extensions.Options;
@@ -27,7 +28,9 @@ public sealed class DefaultExternalSignupPolicy : IExternalSignupPolicy
     {
         if (!context.IsExplicitSignup && !_options.ExternalSignup.AllowProvisioningFromLogin)
         {
-            return Task.FromResult(ExternalSignupDecision.Deny("External login cannot create an account."));
+            return Task.FromResult(ExternalSignupDecision.DenyWithCode(
+                AuthFailureCodes.ExternalLoginNotLinked,
+                "External login cannot create an account."));
         }
 
         if (_options.ExternalSignup.RequireTermsAcceptance && !context.Request.TermsAccepted)
@@ -40,11 +43,24 @@ public sealed class DefaultExternalSignupPolicy : IExternalSignupPolicy
             return Task.FromResult(ExternalSignupDecision.Deny("Privacy policy must be accepted."));
         }
 
-        if (_options.ExternalSignup.RequireVerifiedEmail && (string.IsNullOrWhiteSpace(context.Identity.Email) || !context.Identity.EmailVerified))
+        if (_options.ExternalSignup.RequireVerifiedEmail && !HasVerifiedSignupEmail(context))
         {
-            return Task.FromResult(ExternalSignupDecision.Deny("A verified email address is required."));
+            return Task.FromResult(ExternalSignupDecision.DenyWithCode(
+                AuthFailureCodes.ExternalEmailVerificationRequired,
+                "A verified email address is required."));
         }
 
         return Task.FromResult(ExternalSignupDecision.Allow());
+    }
+
+    private static bool HasVerifiedSignupEmail(ExternalSignupContext context)
+    {
+        if (!string.IsNullOrWhiteSpace(context.Identity.Email) && context.Identity.EmailVerified)
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(context.Request.VerifiedEmail)
+            && !string.IsNullOrWhiteSpace(context.Request.EmailVerificationChallengeId);
     }
 }

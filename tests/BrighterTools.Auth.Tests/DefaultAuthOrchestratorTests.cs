@@ -1,6 +1,8 @@
 using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Constants;
 using BrighterTools.Auth.Defaults;
 using BrighterTools.Auth.Dtos;
+using BrighterTools.Auth.Exceptions;
 using BrighterTools.Auth.Models;
 using BrighterTools.Auth.Options;
 using BrighterTools.Auth.Services;
@@ -114,6 +116,7 @@ public sealed class DefaultAuthOrchestratorTests
         Assert.Equal("refresh-1", response.Session.RefreshToken);
         Assert.Equal("tenant-a", response.Session.CurrentTenant?.TenantId);
     }
+
     [Fact]
     public async Task Refresh_RotatesRefreshToken()
     {
@@ -194,6 +197,60 @@ public sealed class DefaultAuthOrchestratorTests
     }
 
     [Fact]
+    public async Task LoginWithExternalProvider_WhenNoAccountIsLinked_ThrowsCodedFailure()
+    {
+        var harness = TestHarness.Create(hasLinkedExternalLogin: false);
+
+        var exception = await Assert.ThrowsAsync<AuthFailureException>(() => harness.Orchestrator.LoginWithExternalProviderAsync(new ExternalLoginRequest
+        {
+            Provider = AuthProviderType.Google,
+            Credential = "google-token",
+            AllowProvisioning = false
+        }));
+
+        Assert.Equal(AuthFailureCodes.ExternalLoginNotLinked, exception.Code);
+    }
+
+    [Fact]
+    public async Task SignupWithExternalProvider_WhenExternalLoginAlreadyLinked_ThrowsCodedFailure()
+    {
+        var harness = TestHarness.Create();
+
+        var exception = await Assert.ThrowsAsync<AuthFailureException>(() => harness.Orchestrator.SignupWithExternalProviderAsync(new ExternalSignupRequest
+        {
+            Provider = AuthProviderType.Google,
+            Credential = "google-token",
+            TermsAccepted = true,
+            PrivacyPolicyAccepted = true
+        }));
+
+        Assert.Equal(AuthFailureCodes.ExternalLoginAlreadyLinked, exception.Code);
+    }
+
+    [Fact]
+    public async Task SignupWithExternalProvider_ReloadsUserAfterLinkBeforeEvaluatingProviderPolicy()
+    {
+        var provisionedUser = CreateUser(enabledProviders: [AuthProviderType.Password]);
+        var reloadedUser = CreateUser(enabledProviders: [AuthProviderType.Password, AuthProviderType.Google]);
+        var harness = TestHarness.Create(
+            hasLinkedExternalLogin: false,
+            providerPolicy: new EnabledProvidersUserLoginProviderPolicy(),
+            provisionedUser: provisionedUser,
+            reloadedUser: reloadedUser);
+
+        var response = await harness.Orchestrator.SignupWithExternalProviderAsync(new ExternalSignupRequest
+        {
+            Provider = AuthProviderType.Google,
+            Credential = "google-token",
+            TermsAccepted = true,
+            PrivacyPolicyAccepted = true
+        });
+
+        Assert.NotNull(response.Session);
+        Assert.Equal(AuthProviderType.Google, response.Session!.Provider);
+    }
+
+    [Fact]
     public async Task ChallengeMfa_FallsBackToRecoveryCodes()
     {
         var harness = TestHarness.Create(mfaChallengeShouldSucceed: false, recoveryCodeShouldSucceed: true);
@@ -226,6 +283,18 @@ public sealed class DefaultAuthOrchestratorTests
         Assert.Null(response.Session);
     }
 
+    private static AuthUser CreateUser(IReadOnlyList<AuthProviderType>? enabledProviders = null)
+        => new()
+        {
+            Id = "user-1",
+            SubjectId = "subject-1",
+            Email = "alice@example.com",
+            DisplayName = "Alice",
+            CanSignIn = true,
+            EnabledProviders = enabledProviders?.ToList() ?? [AuthProviderType.Password, AuthProviderType.Google],
+            TenantMemberships = [new AuthTenantMembership { TenantId = "tenant-a", TenantName = "Tenant A", Role = "Admin", IsCurrent = true }]
+        };
+
     private sealed class TestHarness
     {
         public required DefaultAuthOrchestrator Orchestrator { get; init; }
@@ -240,20 +309,15 @@ public sealed class DefaultAuthOrchestratorTests
             OnboardingState? onboarding = null,
             bool mfaChallengeShouldSucceed = true,
             bool recoveryCodeShouldSucceed = false,
-            bool providerPolicyAllowed = true)
+            bool providerPolicyAllowed = true,
+            bool hasLinkedExternalLogin = true,
+            AuthUser? provisionedUser = null,
+            AuthUser? reloadedUser = null,
+            IUserLoginProviderPolicy? providerPolicy = null)
         {
-            var user = new AuthUser
-            {
-                Id = "user-1",
-                SubjectId = "subject-1",
-                Email = "alice@example.com",
-                DisplayName = "Alice",
-                CanSignIn = true,
-                TenantMemberships = [new AuthTenantMembership { TenantId = "tenant-a", TenantName = "Tenant A", Role = "Admin", IsCurrent = true }]
-            };
-
-            var userLookup = new FakeUserLookupService(user);
-            var userProvisioning = new FakeUserProvisioningService(user);
+            var user = CreateUser();
+            var userLookup = new FakeUserLookupService(user, hasLinkedExternalLogin, reloadedUser ?? user);
+            var userProvisioning = new FakeUserProvisioningService(provisionedUser ?? user);
             var registrationWorkflow = new FakeRegistrationWorkflowService();
             var emailWorkflow = new FakeEmailWorkflowService();
             var refreshTokenStore = new FakeRefreshTokenStore();
@@ -308,7 +372,7 @@ public sealed class DefaultAuthOrchestratorTests
                 new UnsupportedMfaSecretStore(),
                 new FakeMfaChallengeService(mfaChallengeShouldSucceed),
                 new FakeRecoveryCodeService(recoveryCodeShouldSucceed),
-                new FakeProviderPolicy(providerPolicyAllowed),
+                providerPolicy ?? new FakeProviderPolicy(providerPolicyAllowed),
                 new PreventLastLoginProviderUnlinkPolicy(),
                 new NoOpSecurityEventRecorder(),
                 new FixedClock(),
@@ -325,24 +389,27 @@ public sealed class DefaultAuthOrchestratorTests
         }
     }
 
-    private sealed class FakeUserLookupService(AuthUser user) : IUserLookupService
+    private sealed class FakeUserLookupService(AuthUser user, bool hasLinkedExternalLogin, AuthUser reloadedUser) : IUserLookupService
     {
         public Task<AuthUser?> FindByExternalLoginAsync(AuthProviderType provider, string providerSubject, CancellationToken cancellationToken = default)
-            => Task.FromResult<AuthUser?>(providerSubject == "google-subject" ? user : null);
+            => Task.FromResult<AuthUser?>(hasLinkedExternalLogin && providerSubject == "google-subject" ? user : null);
 
         public Task<AuthUser?> FindByIdAsync(string userId, CancellationToken cancellationToken = default)
-            => Task.FromResult<AuthUser?>(userId == user.Id ? user : null);
+            => Task.FromResult<AuthUser?>(userId == user.Id ? reloadedUser : null);
 
         public Task<AuthUser?> FindByLoginAsync(string login, CancellationToken cancellationToken = default)
             => Task.FromResult<AuthUser?>(login == user.Email ? user : null);
     }
 
-    private sealed class FakeUserProvisioningService(AuthUser user) : IUserProvisioningService
+    private sealed class FakeUserProvisioningService(AuthUser provisionedUser) : IUserProvisioningService
     {
         public string? UpdatedPasswordHash { get; private set; }
 
         public Task<AuthUser> CreateExternalUserAsync(ExternalIdentity identity, CancellationToken cancellationToken = default)
-            => Task.FromResult(user);
+            => Task.FromResult(provisionedUser);
+
+        public Task<AuthUser> CreateExternalUserAsync(ExternalSignupContext context, CancellationToken cancellationToken = default)
+            => Task.FromResult(provisionedUser);
 
         public Task<AuthUser> CreatePasswordUserAsync(AuthUser inputUser, string password, CancellationToken cancellationToken = default)
             => Task.FromResult(inputUser);

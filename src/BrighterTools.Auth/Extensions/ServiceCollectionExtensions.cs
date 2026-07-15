@@ -47,6 +47,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IAuthTenantSwitchStore, UnsupportedAuthTenantSwitchStore>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IExternalAuthProviderValidator, AppleExternalAuthProviderValidator>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IExternalAuthProviderValidator, GoogleExternalAuthProviderValidator>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IExternalAuthProviderValidator, MicrosoftExternalAuthProviderValidator>());
         services.TryAddSingleton<IEmailWorkflowService, NullEmailWorkflowService>();
         services.TryAddSingleton<IAccountLoginMethodWorkflowService, UnsupportedAccountLoginMethodWorkflowService>();
         services.TryAddSingleton<ISignupEmailVerificationWorkflowService, UnsupportedSignupEmailVerificationWorkflowService>();

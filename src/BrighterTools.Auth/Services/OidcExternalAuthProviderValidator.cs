@@ -1,4 +1,6 @@
 using BrighterTools.Auth.Abstractions;
+using BrighterTools.Auth.Constants;
+using BrighterTools.Auth.Exceptions;
 using BrighterTools.Auth.Models;
 using BrighterTools.Auth.Options;
 using Microsoft.IdentityModel.Protocols;
@@ -34,6 +36,16 @@ public abstract class OidcExternalAuthProviderValidator : IExternalAuthProviderV
     /// <inheritdoc />
     public abstract AuthProviderType Provider { get; }
 
+    /// <summary>
+    /// Gets the configured provider options.
+    /// </summary>
+    protected OidcExternalProviderOptions Options => _options;
+
+    /// <summary>
+    /// Gets a value indicating whether the provider requires a statically configured issuer.
+    /// </summary>
+    protected virtual bool RequiresStaticIssuer => true;
+
     /// <inheritdoc />
     public async Task<ExternalIdentity> ValidateAsync(string credential, CancellationToken cancellationToken = default)
     {
@@ -42,38 +54,82 @@ public abstract class OidcExternalAuthProviderValidator : IExternalAuthProviderV
             throw new InvalidOperationException("External credential is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(_options.Issuer))
+        ValidateProviderOptions();
+
+        OpenIdConnectConfiguration configuration;
+        try
         {
-            throw new InvalidOperationException($"Issuer is not configured for provider '{Provider}'.");
+            configuration = await GetConfigurationAsync(cancellationToken);
+        }
+        catch (AuthFailureException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            throw new AuthFailureException(
+                AuthFailureCodes.ExternalProviderMisconfigured,
+                GetProviderMisconfiguredMessage(),
+                exception);
         }
 
-        if (string.IsNullOrWhiteSpace(_options.MetadataAddress))
+        try
         {
-            throw new InvalidOperationException($"MetadataAddress is not configured for provider '{Provider}'.");
-        }
+            var handler = new JwtSecurityTokenHandler();
+            var principal = handler.ValidateToken(credential, CreateTokenValidationParameters(configuration), out _);
 
-        var validationAudiences = _options.ValidationAudiences;
-        if (validationAudiences.Count == 0)
-        {
-            throw new InvalidOperationException($"At least one audience/client ID must be configured for provider '{Provider}'.");
+            ValidatePrincipal(principal);
+            return BuildExternalIdentity(principal);
         }
-
-        var configuration = await _configurationManager.GetConfigurationAsync(cancellationToken);
-        var handler = new JwtSecurityTokenHandler();
-        var principal = handler.ValidateToken(credential, new TokenValidationParameters
+        catch (AuthFailureException)
         {
-            ValidateIssuer = true,
-            ValidIssuer = _options.Issuer,
+            throw;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            throw new AuthFailureException(
+                AuthFailureCodes.ExternalProviderCredentialInvalid,
+                GetCredentialInvalidMessage(),
+                exception);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the provider metadata and signing configuration.
+    /// </summary>
+    protected virtual Task<OpenIdConnectConfiguration> GetConfigurationAsync(CancellationToken cancellationToken)
+        => _configurationManager.GetConfigurationAsync(cancellationToken);
+
+    /// <summary>
+    /// Creates token validation parameters for the provider.
+    /// </summary>
+    protected virtual TokenValidationParameters CreateTokenValidationParameters(OpenIdConnectConfiguration configuration)
+        => new()
+        {
+            ValidateIssuer = RequiresStaticIssuer,
+            ValidIssuer = RequiresStaticIssuer ? _options.Issuer : null,
             ValidateAudience = true,
-            ValidAudiences = validationAudiences,
+            ValidAudiences = _options.ValidationAudiences,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKeys = configuration.SigningKeys,
             ClockSkew = TimeSpan.FromMinutes(5),
             NameClaimType = "name",
             RoleClaimType = ClaimTypes.Role
-        }, out _);
+        };
 
+    /// <summary>
+    /// Performs provider-specific post-validation checks.
+    /// </summary>
+    protected virtual void ValidatePrincipal(ClaimsPrincipal principal)
+    {
+    }
+
+    /// <summary>
+    /// Maps a validated principal to a normalized external identity.
+    /// </summary>
+    protected virtual ExternalIdentity BuildExternalIdentity(ClaimsPrincipal principal)
+    {
         var subject = principal.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrWhiteSpace(subject))
         {
@@ -93,6 +149,43 @@ public abstract class OidcExternalAuthProviderValidator : IExternalAuthProviderV
             EmailVerified = emailVerified,
             Claims = principal.Claims.ToDictionary(claim => claim.Type, claim => (object?)claim.Value)
         };
+    }
+
+    /// <summary>
+    /// Returns the user-facing message used when provider validation configuration is invalid.
+    /// </summary>
+    protected virtual string GetProviderMisconfiguredMessage()
+        => $"{Provider} sign-in is not configured correctly.";
+
+    /// <summary>
+    /// Returns the user-facing message used when a provider credential cannot be validated.
+    /// </summary>
+    protected virtual string GetCredentialInvalidMessage()
+        => $"{Provider} sign-in could not be verified.";
+
+    private void ValidateProviderOptions()
+    {
+        if (RequiresStaticIssuer && string.IsNullOrWhiteSpace(_options.Issuer))
+        {
+            throw new AuthFailureException(
+                AuthFailureCodes.ExternalProviderMisconfigured,
+                $"Issuer is not configured for provider '{Provider}'.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.MetadataAddress))
+        {
+            throw new AuthFailureException(
+                AuthFailureCodes.ExternalProviderMisconfigured,
+                $"MetadataAddress is not configured for provider '{Provider}'.");
+        }
+
+        var validationAudiences = _options.ValidationAudiences;
+        if (validationAudiences.Count == 0)
+        {
+            throw new AuthFailureException(
+                AuthFailureCodes.ExternalProviderMisconfigured,
+                $"At least one audience/client ID must be configured for provider '{Provider}'.");
+        }
     }
 
     private static bool ReadBooleanClaim(ClaimsPrincipal principal, string claimType)
