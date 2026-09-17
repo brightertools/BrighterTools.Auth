@@ -22,16 +22,8 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <VersionPrefix>1.0.1</VersionPrefix>
-    <PackageReleaseNotes>v1.0.1 - React type exports and publishing updates
-
-Included:
-- Prepared the React companion package for scoped npm publishing as @brightertools/auth-react.
-- Included React type/export updates and test setup improvements.
-- Aligned NuGet and npm publishing metadata for the 1.0.1 patch release.
-
-Breaking changes:
-- None.</PackageReleaseNotes>
+    <VersionPrefix>1.1.0</VersionPrefix>
+    <PackageReleaseNotes>v1.1.0 - Add contact-email selection/removal contracts and add-only notification-email requests; update token validation dependencies. Hosts must implement new workflow methods before deploying auth-react 2.0.0. Existing implementations retain source compatibility; default new methods throw NotSupportedException.</PackageReleaseNotes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
     <GenerateDocumentationFile>false</GenerateDocumentationFile>

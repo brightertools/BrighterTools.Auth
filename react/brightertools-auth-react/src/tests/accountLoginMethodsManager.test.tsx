@@ -1,9 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AccountLoginMethodsManager } from "../components/AccountLoginMethodsManager";
 import type { AccountLoginMethods } from "../types/auth";
 
 const loadMock = vi.fn();
+const beginContactMock = vi.fn();
+const selectContactMock = vi.fn();
 
 vi.mock("../hooks/useAuth", () => ({
   useAuth: () => ({
@@ -20,7 +22,9 @@ vi.mock("../hooks/useLoginMethods", () => ({
     unlinkProvider: vi.fn(),
     beginLoginEmailChange: vi.fn(),
     verifyLoginEmailChangeCode: vi.fn(),
-    beginNotificationEmailChange: vi.fn(),
+    beginNotificationEmailChange: beginContactMock,
+    selectNotificationEmail: selectContactMock,
+    removeContactEmail: vi.fn(),
     verifyNotificationEmailChangeCode: vi.fn(),
     beginPasswordSetup: vi.fn(),
     completePasswordSetup: vi.fn(),
@@ -52,6 +56,8 @@ const details: AccountLoginMethods = {
 describe("AccountLoginMethodsManager", () => {
   beforeEach(() => {
     loadMock.mockReset();
+    beginContactMock.mockReset();
+    selectContactMock.mockReset();
   });
 
   it("shows a loading state before login details arrive instead of rendering the not set up state", async () => {
@@ -70,6 +76,20 @@ describe("AccountLoginMethodsManager", () => {
     await waitFor(() => {
       expect(screen.getByText("Login email")).toBeTruthy();
     });
+  });
+
+  it("adds a contact without changing the notification selection", async () => {
+    const account = { ...details, notificationEmail: details.email, notificationEmailVerified: true,
+      notificationEmailCandidates: [{ email: details.email!, isVerified: true, canUseForNotifications: true, isCurrentNotificationEmail: true, isPrivateRelay: false }] };
+    loadMock.mockResolvedValue({ success: true, data: account });
+    beginContactMock.mockResolvedValue({ success: true, data: { email: "new@example.com", challengeId: "contact-challenge", codeSent: true } });
+    render(<AccountLoginMethodsManager />);
+    const section = (await screen.findByRole("heading", { name: "Contact emails and notifications" })).closest("section")!;
+    fireEvent.change(within(section).getByPlaceholderText("Enter your email address"), { target: { value: "new@example.com" } });
+    fireEvent.click(within(section).getByRole("button", { name: "Verify email" }));
+    await waitFor(() => expect(beginContactMock).toHaveBeenCalledWith(expect.objectContaining({ email: "new@example.com", addOnly: true })));
+    expect(selectContactMock).not.toHaveBeenCalled();
+    expect(within(section).getByText("Notification default")).toBeTruthy();
   });
 
   it("shows a retryable error when the first login details fetch fails", async () => {

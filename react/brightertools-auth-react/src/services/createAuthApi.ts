@@ -60,6 +60,8 @@ export interface AuthApiEndpoints {
   verifyLoginEmailChangeCode: string;
   confirmLoginEmailChange: string;
   beginNotificationEmailChange: string;
+  selectNotificationEmail: string;
+  removeContactEmail: string;
   verifyNotificationEmailChangeCode: string;
   confirmNotificationEmailChange: string;
   beginPasswordSetup: string;
@@ -93,6 +95,8 @@ export interface AuthApiClient {
   verifyLoginEmailChangeCode(request: VerifyLoginEmailChangeCodeRequest): Promise<ApiEnvelope<VerifyLoginEmailChangeResponse>>;
   confirmLoginEmailChange(token: string): Promise<ApiEnvelope<VerifyLoginEmailChangeResponse>>;
   beginNotificationEmailChange(request: BeginNotificationEmailChangeRequest): Promise<ApiEnvelope<BeginEmailChallengeResponse>>;
+  selectNotificationEmail(request: { email: string }): Promise<ApiEnvelope<AccountLoginMethodsResponse>>;
+  removeContactEmail(request: { email: string }): Promise<ApiEnvelope<AccountLoginMethodsResponse>>;
   verifyNotificationEmailChangeCode(request: VerifyNotificationEmailChangeCodeRequest): Promise<ApiEnvelope<VerifyNotificationEmailChangeResponse>>;
   confirmNotificationEmailChange(token: string): Promise<ApiEnvelope<VerifyNotificationEmailChangeResponse>>;
   beginPasswordSetup(): Promise<ApiEnvelope<BeginPasswordSetupResponse>>;
@@ -136,6 +140,8 @@ const defaultEndpoints = (apiPrefix: string): AuthApiEndpoints => ({
   verifyLoginEmailChangeCode: `${apiPrefix}/account/login-email/verify-code`,
   confirmLoginEmailChange: `${apiPrefix}/authentication/login-email/confirm`,
   beginNotificationEmailChange: `${apiPrefix}/account/notification-email/change`,
+  selectNotificationEmail: `${apiPrefix}/account/contact-email/select`,
+  removeContactEmail: `${apiPrefix}/account/contact-email/remove`,
   verifyNotificationEmailChangeCode: `${apiPrefix}/account/notification-email/verify-code`,
   confirmNotificationEmailChange: `${apiPrefix}/authentication/notification-email/confirm`,
   beginPasswordSetup: `${apiPrefix}/account/password/setup`,
@@ -229,6 +235,8 @@ export const createAuthApi = (optionsOrBaseUrl: CreateAuthApiOptions | string = 
     verifyLoginEmailChangeCode: request => post(endpoints.verifyLoginEmailChangeCode, request),
     confirmLoginEmailChange: token => post(endpoints.confirmLoginEmailChange, { token }),
     beginNotificationEmailChange: request => post(endpoints.beginNotificationEmailChange, request),
+    selectNotificationEmail: request => post(endpoints.selectNotificationEmail, request),
+    removeContactEmail: request => post(endpoints.removeContactEmail, request),
     verifyNotificationEmailChangeCode: request => post(endpoints.verifyNotificationEmailChangeCode, request),
     confirmNotificationEmailChange: token => post(endpoints.confirmNotificationEmailChange, { token }),
     beginPasswordSetup: () => post(endpoints.beginPasswordSetup, {}),

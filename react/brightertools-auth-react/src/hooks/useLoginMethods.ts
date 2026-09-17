@@ -13,6 +13,8 @@ export const useLoginMethods = () => {
   const beginLoginEmailChange = useCallback((request: BeginLoginEmailChangeRequest) => api.beginLoginEmailChange(request), [api]);
   const verifyLoginEmailChangeCode = useCallback((request: VerifyLoginEmailChangeCodeRequest) => api.verifyLoginEmailChangeCode(request), [api]);
   const beginNotificationEmailChange = useCallback((request: BeginNotificationEmailChangeRequest) => api.beginNotificationEmailChange(request), [api]);
+  const selectNotificationEmail = useCallback((email: string) => api.selectNotificationEmail({ email }), [api]);
+  const removeContactEmail = useCallback((email: string) => api.removeContactEmail({ email }), [api]);
   const verifyNotificationEmailChangeCode = useCallback((request: VerifyNotificationEmailChangeCodeRequest) => api.verifyNotificationEmailChangeCode(request), [api]);
   const beginPasswordSetup = useCallback(() => api.beginPasswordSetup(), [api]);
   const completePasswordSetup = useCallback((request: CompletePasswordSetupRequest) => api.completePasswordSetup(request), [api]);
@@ -27,10 +29,12 @@ export const useLoginMethods = () => {
     beginLoginEmailChange,
     verifyLoginEmailChangeCode,
     beginNotificationEmailChange,
+    selectNotificationEmail,
+    removeContactEmail,
     verifyNotificationEmailChangeCode,
     beginPasswordSetup,
     completePasswordSetup,
     changePassword,
     removePasswordLogin
-  }), [beginLoginEmailChange, beginNotificationEmailChange, beginPasswordSetup, changePassword, completePasswordSetup, linkProvider, linkedProviders, load, removePasswordLogin, unlinkProvider, verifyLoginEmailChangeCode, verifyNotificationEmailChangeCode]);
+  }), [beginLoginEmailChange, beginNotificationEmailChange, selectNotificationEmail, removeContactEmail, beginPasswordSetup, changePassword, completePasswordSetup, linkProvider, linkedProviders, load, removePasswordLogin, unlinkProvider, verifyLoginEmailChangeCode, verifyNotificationEmailChangeCode]);
 };

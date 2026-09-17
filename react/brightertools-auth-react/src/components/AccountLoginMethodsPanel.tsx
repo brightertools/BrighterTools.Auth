@@ -58,6 +58,8 @@ export interface AccountLoginMethodsPanelProps {
   onVerifyLoginEmailCode: () => Promise<void> | void;
   onRequestNotificationEmailChange: (email: string, deliveryMode: EmailChallengeDeliveryMode) => Promise<void> | void;
   onVerifyNotificationEmailCode: () => Promise<void> | void;
+  onSelectNotificationEmail?: (email: string) => Promise<void> | void;
+  onRemoveContactEmail?: (email: string) => Promise<void> | void;
   onRequestPasswordSetup: () => Promise<void> | void;
   onCompletePasswordSetup?: (request: CompletePasswordSetupInput) => Promise<void> | void;
   onChangePassword?: (request: ChangePasswordInput) => Promise<void> | void;
@@ -94,6 +96,8 @@ export function AccountLoginMethodsPanel({
   onVerifyLoginEmailCode,
   onRequestNotificationEmailChange,
   onVerifyNotificationEmailCode,
+  onSelectNotificationEmail,
+  onRemoveContactEmail,
   onCompletePasswordSetup,
   onChangePassword,
   onRemovePasswordLogin,
@@ -118,12 +122,10 @@ export function AccountLoginMethodsPanel({
     const source = candidate.sourceProvider ?? candidate.source;
     return source ? `${candidate.email} (${providerLabel(source)})` : candidate.email;
   };
-  const firstProviderEmail = useMemo(() => providers.find(provider => provider.email && !provider.email.endsWith("@privaterelay.appleid.com"))?.email ?? "", [providers]);
-  const recommendedNotificationEmail = details?.recommendedNotificationEmail ?? candidates.find(x => x.canUseForNotifications)?.email ?? "";
-  const suggestedEmail = details?.primaryEmailIsPrivateRelay ? (recommendedNotificationEmail || firstProviderEmail) : (details?.email || recommendedNotificationEmail || firstProviderEmail);
-  const suggestedNotificationEmail = details?.notificationEmail || recommendedNotificationEmail || suggestedEmail;
+  const firstProviderEmail = useMemo(() => providers.find(provider => provider.email)?.email ?? "", [providers]);
+  const suggestedEmail = details?.email || firstProviderEmail;
   const [email, setEmail] = useState(suggestedEmail);
-  const [notificationEmail, setNotificationEmail] = useState(suggestedNotificationEmail);
+  const [notificationEmail, setNotificationEmail] = useState("");
   const [setupPassword, setSetupPassword] = useState("");
   const [setupConfirmPassword, setSetupConfirmPassword] = useState("");
   const [setupError, setSetupError] = useState("");
@@ -142,9 +144,9 @@ export function AccountLoginMethodsPanel({
   const canRemovePasswordLogin = hasPasswordLogin && providers.length > 0;
   const emailMatchesAccountLogin = !!details?.email && details.email.toLowerCase() === email.trim().toLowerCase();
   const usingPrivateRelayEmail = !!details?.primaryEmailIsPrivateRelay && emailMatchesAccountLogin;
-  const passwordLoginEmailVerified = hasPasswordLogin && !editingLoginEmail && !usingPrivateRelayEmail && !!details?.emailVerified && emailMatchesAccountLogin;
-  const setupEmailVerified = !hasPasswordLogin && !editingLoginEmail && !usingPrivateRelayEmail && (passwordSetupEmailVerified || (!!details?.emailVerified && emailMatchesAccountLogin));
-  const notificationEmailVerified = !!details?.notificationEmailVerified && !!details.notificationEmail && details.notificationEmail.toLowerCase() === notificationEmail.trim().toLowerCase();
+  const passwordLoginEmailVerified = hasPasswordLogin && !editingLoginEmail && !!details?.emailVerified && emailMatchesAccountLogin;
+  const setupEmailVerified = !hasPasswordLogin && !editingLoginEmail && (passwordSetupEmailVerified || (!!details?.emailVerified && emailMatchesAccountLogin));
+  const notificationEmailVerified = candidates.some(candidate => candidate.isVerified && candidate.email.toLowerCase() === notificationEmail.trim().toLowerCase());
   const setupPasswordValid = isPasswordValid(setupPassword, setupConfirmPassword, minimumPasswordLength);
   const changePasswordValid = currentPassword.length > 0 && isPasswordValid(newPassword, confirmNewPassword, minimumPasswordLength);
   const canSavePasswordSetup = setupEmailVerified && setupPasswordValid;
@@ -165,11 +167,10 @@ export function AccountLoginMethodsPanel({
 
   useEffect(() => {
     setEmail(suggestedEmail);
-    setNotificationEmail(suggestedNotificationEmail);
     setSetupError("");
     setNotificationError("");
     setEditingLoginEmail(false);
-  }, [suggestedEmail, suggestedNotificationEmail]);
+  }, [suggestedEmail]);
 
   const clearEmailVerification = () => {
     setSetupError("");
@@ -179,6 +180,7 @@ export function AccountLoginMethodsPanel({
   };
 
   const clearNotificationEmailVerification = () => {
+    setNotificationEmail("");
     setNotificationError("");
     onNotificationVerificationCodeChange?.("");
     onClearNotificationEmailVerification?.();
@@ -293,18 +295,36 @@ export function AccountLoginMethodsPanel({
               <h2 className="h6 mb-1">{accountText.notificationEmailHeading}</h2>
               <p className="small text-muted mb-0">{accountText.notificationEmailDescription}</p>
             </div>
-            {notificationEmailVerified ? <span className="badge text-bg-success align-self-start">{accountText.verifiedBadgeLabel}</span> : <span className="badge text-bg-warning align-self-start">{accountText.needsVerificationBadgeLabel}</span>}
+            {details?.notificationEmailVerified && <span className="badge text-bg-success align-self-start">{accountText.verifiedBadgeLabel}</span>}
           </div>
           {candidates.length > 0 && (
             <div className="mb-3">
               <div className="small fw-semibold mb-2">{accountText.suggestedVerifiedEmailsLabel}</div>
-              <div className="d-flex flex-wrap gap-2">
-                {candidates.filter(candidate => candidate.canUseForNotifications).map(candidate => (
-                  <button key={candidate.email} type="button" className="btn btn-outline-secondary btn-sm" onClick={() => updateNotificationEmail(candidate.email)}>
-                    {candidateLabel(candidate)}
-                  </button>
-                ))}
-              </div>
+                <div className="d-flex flex-column gap-2">
+                  {candidates.map(candidate => (
+                    <div key={candidate.email} className="d-flex flex-wrap align-items-center gap-2">
+                      <span className="text-break">{candidateLabel(candidate)}{candidate.isPrivateRelay ? ` — ${accountText.privateRelayBadgeLabel}` : ""}</span>
+                      {candidate.isCurrentNotificationEmail ? <span className="badge text-bg-success">{accountText.notificationDefaultLabel}</span> : (
+                        <>
+                          {candidate.canUseForNotifications && onSelectNotificationEmail && (
+                            <button type="button" className="btn btn-outline-primary btn-sm" disabled={!!busyAction || !!busyProvider}
+                              aria-label={formatAuthText(accountText.useForNotificationsAccessibleLabel, { email: candidate.email })}
+                              onClick={() => onSelectNotificationEmail(candidate.email)}>{accountText.useForNotificationsLabel}</button>
+                          )}
+                          {!candidate.isVerified && (
+                            <button type="button" className="btn btn-outline-secondary btn-sm" disabled={!!busyAction || !!busyProvider}
+                              onClick={() => updateNotificationEmail(candidate.email)}>{accountText.verifyContactLabel}</button>
+                          )}
+                          {onRemoveContactEmail && (
+                            <button type="button" className="btn btn-outline-danger btn-sm" disabled={!!busyAction || !!busyProvider}
+                              aria-label={formatAuthText(accountText.removeContactAccessibleLabel, { email: candidate.email })}
+                              onClick={() => onRemoveContactEmail(candidate.email)}>{accountText.removeLabel}</button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
             </div>
           )}
           {notificationError && <div className="alert alert-danger py-2">{notificationError}</div>}
@@ -316,6 +336,7 @@ export function AccountLoginMethodsPanel({
             verificationCode={notificationVerificationCode}
             busySending={busyAction === "notification-email"}
             busyVerifying={busyAction === "verify-notification-code"}
+            disabled={!!busyProvider || (!!busyAction && !["notification-email", "verify-notification-code"].includes(busyAction))}
             emailPlaceholder={emailVerificationText.emailPlaceholder}
             codePlaceholder={emailVerificationText.codePlaceholder}
             sendLabel={emailVerificationText.sendLabel}

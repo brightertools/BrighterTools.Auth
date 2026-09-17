@@ -62,7 +62,7 @@ describe("createLocalizedAuthUiText", () => {
 
     expect(calls).toContainEqual({ key: "auth.login.signInLabel", fallback: "Sign in" });
     expect(calls).toContainEqual({ key: "auth.accountLoginMethods.verifiedByProviderMessage", fallback: "Verified by {provider}" });
-    expect(calls).toContainEqual({ key: "auth.invitationAcceptance.acceptInvitationLabel", fallback: "Accept Invitation" });
+    expect(calls).toContainEqual({ key: "auth.invitationAcceptance.acceptInvitationLabel", fallback: "Create account and accept invitation" });
     expect(calls).toContainEqual({ key: "auth.invitationManagement.title", fallback: "User Invitations" });
     expect(calls).toContainEqual({ key: "auth.invitationImport.importAndSendLabel", fallback: "Import and Send" });
     expect(calls).toContainEqual({ key: "auth.shared.providerLabels.Microsoft", fallback: "Microsoft" });

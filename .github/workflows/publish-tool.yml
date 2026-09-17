@@ -51,7 +51,7 @@ jobs:
           npm --version
 
       - name: Restore
-        run: dotnet restore ./BrighterTools.Auth.sln --configfile ./NuGet.config
+        run: dotnet restore ./BrighterTools.Auth.sln --configfile ./NuGet.config -p:NuGetAuditMode=all -warnaserror:NU1901,NU1902,NU1903,NU1904
 
       - name: Build
         run: dotnet build ./BrighterTools.Auth.sln --configuration Release --no-restore
@@ -61,7 +61,7 @@ jobs:
 
       - name: Install React companion dependencies
         working-directory: ./react/brightertools-auth-react
-        run: npm install
+        run: npm ci
 
       - name: Test React companion package
         working-directory: ./react/brightertools-auth-react
@@ -100,6 +100,10 @@ jobs:
           name: brightertools-auth-npm
           path: ./artifacts/npm/*
           if-no-files-found: error
+
+      - name: Audit React dependencies
+        working-directory: ./react/brightertools-auth-react
+        run: npm audit --audit-level=low
 
       - name: NuGet login (OIDC to temp API key)
         if: ${{ inputs.publish_to_nuget }}

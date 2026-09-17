@@ -161,6 +161,14 @@ export interface AccountLoginMethodsTextOverrides {
   needsVerificationBadgeLabel?: string;
   suggestedVerifiedEmailsLabel?: string;
   notificationEmailAddressLabel?: string;
+  notificationDefaultLabel?: string;
+  useForNotificationsLabel?: string;
+  useForNotificationsAccessibleLabel?: string;
+  removeContactAccessibleLabel?: string;
+  verifyContactLabel?: string;
+  contactUpdateFailedMessage?: string;
+  contactRemovedMessage?: string;
+  notificationSelectionUpdatedMessage?: string;
   enterCodeSentMessage?: string;
   setupPasswordHeading?: string;
   setupPasswordDescription?: string;
@@ -210,6 +218,11 @@ export interface AccountLoginMethodsTextOverrides {
 }
 
 export interface InvitationAcceptanceTextOverrides {
+  accountChoiceHeading?: string;
+  accountChoiceDescription?: string;
+  currentUserFallbackLabel?: string;
+  loginProviderFallbackLabel?: string;
+  requestInvitationUpdateMessage?: string;
   title?: string;
   declineTitle?: string;
   loadingInvitationMessage?: string;
@@ -223,8 +236,13 @@ export interface InvitationAcceptanceTextOverrides {
   declineLinkLabel?: string;
   useCurrentAccountHeading?: string;
   loggedInAsMessage?: string;
+  currentAccountIntroMessage?: string;
+  currentAccountDetailsMessage?: string;
   alreadyBelongsMessage?: string;
   useCurrentAccountDescription?: string;
+  restrictedEmailMessage?: string;
+  requestInvitationUpdateLabel?: string;
+  restrictedLoginGuidanceMessage?: string;
   useCurrentAccountLabel?: string;
   usingCurrentAccountLabel?: string;
   useAnotherAccountLabel?: string;
@@ -522,14 +540,22 @@ export const defaultAccountLoginMethodsText: Required<AccountLoginMethodsTextOve
   passwordRequirementsBeforeSavingMessage: "Please complete the password requirements before saving.",
   passwordRequirementsBeforeChangingMessage: "Please enter your current password and complete the new password requirements.",
   notificationEmailRequiredTitle: "Notification email required.",
-  notificationEmailRequiredDescription: "Please verify an addressable email so important account notifications can reach you.",
+  notificationEmailRequiredDescription: "Choose a verified contact email for notifications. Apple private relay addresses are supported.",
   notificationEmailValueLabel: "Notification email:",
-  notificationEmailHeading: "Notification email",
-  notificationEmailDescription: "Used for important account notifications. It can be different from your sign-in provider email.",
+  notificationEmailHeading: "Contact emails and notifications",
+  notificationEmailDescription: "Choose one address for account and organisation notifications. Adding an address or connecting a login provider does not change this choice, your login email, billing preferences or marketing consent. To remove the selected address, choose a replacement first.",
   verifiedBadgeLabel: "Verified",
   needsVerificationBadgeLabel: "Needs verification",
-  suggestedVerifiedEmailsLabel: "Suggested verified emails",
-  notificationEmailAddressLabel: "Notification email address",
+  suggestedVerifiedEmailsLabel: "Contact addresses",
+  notificationEmailAddressLabel: "Add and verify a contact email",
+  notificationDefaultLabel: "Notification default",
+  useForNotificationsLabel: "Use for notifications",
+  useForNotificationsAccessibleLabel: "Use {email} for notifications",
+  removeContactAccessibleLabel: "Remove contact email {email}",
+  verifyContactLabel: "Verify address",
+  contactUpdateFailedMessage: "Could not update contact email.",
+  contactRemovedMessage: "Contact email removed. Your login methods, billing preferences and marketing consent are unchanged.",
+  notificationSelectionUpdatedMessage: "Notification email updated. Your login methods are unchanged.",
   enterCodeSentMessage: "Enter the code we sent to this email address.",
   setupPasswordHeading: "Set up email/password login",
   setupPasswordDescription: "Verify the email you want to use for password login, then choose a password.",
@@ -579,6 +605,11 @@ export const defaultAccountLoginMethodsText: Required<AccountLoginMethodsTextOve
 };
 
 export const defaultInvitationAcceptanceText: Required<InvitationAcceptanceTextOverrides> = {
+  accountChoiceHeading: "Accept your invitation",
+  accountChoiceDescription: "Choose whether to use an existing account or create a new account.",
+  currentUserFallbackLabel: "Current user",
+  loginProviderFallbackLabel: "Password",
+  requestInvitationUpdateMessage: "Please resend this invitation to {email}, or update this invitation to allow any email address.",
   title: "User Invitation",
   declineTitle: "Decline User Invitation",
   loadingInvitationMessage: "Loading user invitation...",
@@ -592,19 +623,24 @@ export const defaultInvitationAcceptanceText: Required<InvitationAcceptanceTextO
   declineLinkLabel: "decline the invitation",
   useCurrentAccountHeading: "Use Current Account",
   loggedInAsMessage: "Logged in as {name} ({email})",
-  alreadyBelongsMessage: "You already belong to this organisation/group with this account, so this invitation cannot be accepted again.",
-  useCurrentAccountDescription: "You are already logged in. Do you want to use this account?",
-  useCurrentAccountLabel: "Use this account to accept invitation",
+  currentAccountIntroMessage: "You are already signed in.",
+  currentAccountDetailsMessage: "Account: {name}, {email} ({provider})",
+  alreadyBelongsMessage: "You also already belong to this organisation/group, so you cannot accept this invitation on this login.",
+  useCurrentAccountDescription: "Do you want to accept the invitation using this logged in account, or use another account?",
+  restrictedEmailMessage: "This invitation is for {invitedEmail} and cannot be accepted with this account. Decline it and ask the inviter to resend it to your preferred email address or allow any email address.",
+  requestInvitationUpdateLabel: "Decline invitation and request an update",
+  restrictedLoginGuidanceMessage: "This invitation is for {invitedEmail}. Use that email address when signing in.",
+  useCurrentAccountLabel: "Accept invitation with this account",
   usingCurrentAccountLabel: "Accepting Invitation",
-  useAnotherAccountLabel: "Accept using another account",
+  useAnotherAccountLabel: "Logout and use another account",
   switchingAccountLabel: "Switching account...",
-  existingAccountHeading: "Login To Existing Account",
+  existingAccountHeading: "Accept invitation with existing account",
   existingAccountEmailLabel: "Email address",
   existingAccountPasswordLabel: "Password",
   connectExistingAccountLabel: "Login & Connect Existing Account",
   connectingExistingAccountLabel: "Connecting Account",
-  createNewAccountInsteadLabel: "Create new account and accept invitation",
-  createAccountHeading: "Create New Account And Accept Invitation",
+  createNewAccountInsteadLabel: "Create a new account and accept invitation",
+  createAccountHeading: "Create a new account and accept invitation",
   firstNameLabel: "First Name",
   lastNameLabel: "Last Name",
   emailAddressLabel: "Email address",
@@ -622,17 +658,17 @@ export const defaultInvitationAcceptanceText: Required<InvitationAcceptanceTextO
   termsLinkLabel: "Terms of Service",
   privacyPolicyAcceptedLabel: "I accept the",
   privacyPolicyLinkLabel: "Privacy Policy",
-  acceptInvitationLabel: "Accept Invitation",
+  acceptInvitationLabel: "Create account and accept invitation",
   acceptingInvitationLabel: "Accepting Invitation",
-  alreadyHaveAccountLabel: "I already have an account",
+  alreadyHaveAccountLabel: "Use an existing account",
   acceptFailedMessage: "Error accepting invitation.",
   loginFailedMessage: "Login failed.",
   connectFailedMessage: "Could not connect this invitation.",
   invitationAcceptedMessage: "You have successfully accepted the invitation.",
   invitationAcceptedVerifyEmailMessage: "Your account has been created. Please verify your email address before signing in.",
   declineConfirmationBody: "If you decline this invitation, the inviter may be notified. You can include an optional message below.",
-  declineMessageLabel: "Response Reason/Message (optional)",
-  declineInvitationLabel: "Decline Invitation",
+  declineMessageLabel: "Message to the inviter (optional)",
+  declineInvitationLabel: "Decline invitation",
   decliningInvitationLabel: "Declining Invitation",
   cancelLabel: "Cancel",
   invitationDeclinedMessage: "You have successfully declined the invitation.",

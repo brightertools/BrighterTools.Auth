@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import type { AuthProviderType } from "./auth";
+import type { AuthProviderUiConfig, AuthUiTextOverrides, LoginEmailUiOptions } from "../authUi";
 
 export type InvitationStatus = "pending" | "accepted" | "declined" | "expired" | "unknown";
 
@@ -50,6 +52,20 @@ export interface InvitationConnectRequest {
 export interface InvitationDeclineRequest {
   userInvitationKey: string;
   message?: string;
+}
+
+export interface InvitationExistingAccountLoginOptions {
+  providerUi?: AuthProviderUiConfig[];
+  loginEmailUi?: LoginEmailUiOptions;
+  textOverrides?: AuthUiTextOverrides;
+  googleClientId?: string;
+  appleClientId?: string;
+  microsoftClientId?: string;
+  microsoftAuthority?: string;
+  microsoftRedirectPath?: string;
+  appleRedirectPath?: string;
+  appleRedirectOrigin?: string;
+  transformError?: (message: string, code?: string, provider?: AuthProviderType) => string;
 }
 
 export interface InvitationListRequest {

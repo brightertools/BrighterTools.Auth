@@ -7,6 +7,10 @@ namespace BrighterTools.Auth.Abstractions;
 /// </summary>
 public interface IAccountLoginMethodWorkflowService
 {
+    Task<AccountLoginMethodsResponse> SelectNotificationEmailAsync(string userId, ContactEmailRequest request, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Contact email management is not supported by this host.");
+    Task<AccountLoginMethodsResponse> RemoveContactEmailAsync(string userId, ContactEmailRequest request, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Contact email management is not supported by this host.");
     Task<AccountLoginMethodsResponse> GetAccountLoginMethodsAsync(string userId, CancellationToken cancellationToken = default);
     Task<BeginLoginEmailChangeResponse> BeginLoginEmailChangeAsync(string userId, BeginLoginEmailChangeRequest request, CancellationToken cancellationToken = default);
     Task<VerifyLoginEmailChangeResponse> VerifyLoginEmailChangeCodeAsync(string userId, VerifyLoginEmailChangeCodeRequest request, CancellationToken cancellationToken = default);

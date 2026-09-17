@@ -34,8 +34,9 @@ describe("InvitationAcceptancePanel", () => {
       />
     );
 
-    await screen.findByText("You already belong to this organisation/group with this account, so this invitation cannot be accepted again.");
-    expect(screen.queryByRole("button", { name: "Use this account to accept invitation" })).toBeNull();
+    await screen.findByText("You also already belong to this organisation/group, so you cannot accept this invitation on this login.");
+    expect(screen.queryByRole("button", { name: "Accept invitation with this account" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Logout and use another account" })).not.toBeNull();
   });
 
   it("submits base and extension fields and completes with login when activated", async () => {
@@ -77,7 +78,8 @@ describe("InvitationAcceptancePanel", () => {
       />
     );
 
-    await screen.findByText("Create New Account And Accept Invitation");
+    fireEvent.click(await screen.findByRole("button", { name: "Create a new account and accept invitation" }));
+    await screen.findByText("Create a new account and accept invitation");
 
     fireEvent.change(screen.getByLabelText("First Name"), { target: { value: "Alex" } });
     fireEvent.change(screen.getByLabelText("Last Name"), { target: { value: "Taylor" } });
@@ -86,7 +88,7 @@ describe("InvitationAcceptancePanel", () => {
     fireEvent.change(screen.getByLabelText("Confirm Password"), { target: { value: "Password1!" } });
     fireEvent.click(screen.getByLabelText(/I have read and accept the/i));
     fireEvent.click(screen.getByLabelText(/I accept the/i));
-    fireEvent.click(screen.getByRole("button", { name: "Accept Invitation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create account and accept invitation" }));
 
     await waitFor(() => {
       expect(adapter.acceptInvitation).toHaveBeenCalledWith(expect.objectContaining({
@@ -104,5 +106,108 @@ describe("InvitationAcceptancePanel", () => {
       expect(loginWithPassword).toHaveBeenCalledWith("alex@example.com", "Password1!");
       expect(onCompleted).toHaveBeenCalledWith("accepted");
     });
+  });
+
+  it("connects a current account when its email matches a restricted invitation", async () => {
+    const connectInvitation = vi.fn().mockResolvedValue({ success: true });
+    const adapter: Pick<InvitationServiceAdapter, "getInvitationDetails" | "acceptInvitation" | "connectInvitation" | "declineInvitation"> = {
+      getInvitationDetails: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          email: "invitee@example.com",
+          accountName: "Example Org",
+          canChangeEmailAddress: false,
+          status: "pending"
+        }
+      }),
+      acceptInvitation: vi.fn(),
+      connectInvitation,
+      declineInvitation: vi.fn()
+    };
+
+    render(
+      <InvitationAcceptancePanel
+        invitationKey="invite-key"
+        adapter={adapter}
+        currentUser={{ email: "invitee@example.com" }}
+        getCurrentUserDisplayName={() => "Invitee User"}
+        getCurrentUserEmail={user => user.email}
+        getCurrentUserLoginProvider={() => "Google"}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Accept invitation with this account" }));
+    await waitFor(() => expect(connectInvitation).toHaveBeenCalledWith({ userInvitationKey: "invite-key" }));
+  });
+
+  it("allows a current account with a different email when the invitation permits any email", async () => {
+    const connectInvitation = vi.fn().mockResolvedValue({ success: true });
+    const adapter: Pick<InvitationServiceAdapter, "getInvitationDetails" | "acceptInvitation" | "connectInvitation" | "declineInvitation"> = {
+      getInvitationDetails: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          email: "corporate@example.com",
+          accountName: "Example Org",
+          canChangeEmailAddress: true,
+          status: "pending"
+        }
+      }),
+      acceptInvitation: vi.fn(),
+      connectInvitation,
+      declineInvitation: vi.fn()
+    };
+
+    render(
+      <InvitationAcceptancePanel
+        invitationKey="invite-key"
+        adapter={adapter}
+        currentUser={{ email: "personal@example.com" }}
+        getCurrentUserEmail={user => user.email}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Accept invitation with this account" }));
+    await waitFor(() => expect(connectInvitation).toHaveBeenCalledWith({ userInvitationKey: "invite-key" }));
+  });
+
+  it("requires an explicit decline before requesting an update for a restricted email mismatch", async () => {
+    const declineInvitation = vi.fn().mockResolvedValue({ success: true });
+    const adapter: Pick<InvitationServiceAdapter, "getInvitationDetails" | "acceptInvitation" | "connectInvitation" | "declineInvitation"> = {
+      getInvitationDetails: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          email: "corporate@example.com",
+          accountName: "Example Org",
+          canChangeEmailAddress: false,
+          status: "pending"
+        }
+      }),
+      acceptInvitation: vi.fn(),
+      connectInvitation: vi.fn(),
+      declineInvitation
+    };
+
+    render(
+      <InvitationAcceptancePanel
+        invitationKey="invite-key"
+        adapter={adapter}
+        currentUser={{ email: "personal@example.com" }}
+        getCurrentUserEmail={user => user.email}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Decline invitation and request an update" }));
+
+    const response = await screen.findByLabelText("Message to the inviter (optional)");
+    expect((response as HTMLTextAreaElement).value).toBe("Please resend this invitation to personal@example.com, or update this invitation to allow any email address.");
+    expect(declineInvitation).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Accept invitation with this account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Logout and use another account" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Decline invitation" }));
+    await waitFor(() => expect(declineInvitation).toHaveBeenCalledWith({
+      userInvitationKey: "invite-key",
+      message: "Please resend this invitation to personal@example.com, or update this invitation to allow any email address."
+    }));
   });
 });

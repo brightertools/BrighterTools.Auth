@@ -1,11 +1,13 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { defaultInvitationAcceptanceText, formatAuthText, type AuthUiTextOverrides } from "../authUi";
+import { LoginPanel } from "./LoginPanel";
 import { PasswordRulesChecklist, isPasswordValid } from "./PasswordRulesChecklist";
 import type {
   InvitationAcceptanceClassNames,
   InvitationCreateAccountExtensionProps,
   InvitationDetails,
+  InvitationExistingAccountLoginOptions,
   InvitationOperationResult,
   InvitationServiceAdapter
 } from "../types/invitations";
@@ -26,9 +28,11 @@ export interface InvitationAcceptancePanelProps<TUser = unknown> {
   currentUser?: TUser | null;
   getCurrentUserDisplayName?: (user: TUser) => string;
   getCurrentUserEmail?: (user: TUser) => string | undefined;
+  getCurrentUserLoginProvider?: (user: TUser) => string | undefined;
   isCurrentUserAlreadyInInvitedTenant?: (user: TUser, details: InvitationDetails) => boolean;
   loginWithPassword?: (login: string, password: string) => Promise<InvitationOperationResult<void>>;
   signOutCurrentUser?: () => Promise<void>;
+  existingAccountLogin?: InvitationExistingAccountLoginOptions;
   termsUrl?: string;
   privacyUrl?: string;
   minimumPasswordLength?: number;
@@ -60,6 +64,9 @@ const formatInvitedBy = (details: InvitationDetails) => {
   return name || email;
 };
 
+const sameEmail = (first?: string, second?: string) =>
+  !!first?.trim() && !!second?.trim() && first.trim().toLowerCase() === second.trim().toLowerCase();
+
 export function InvitationAcceptancePanel<TUser = unknown>({
   className,
   invitationKey,
@@ -68,9 +75,11 @@ export function InvitationAcceptancePanel<TUser = unknown>({
   currentUser,
   getCurrentUserDisplayName,
   getCurrentUserEmail,
+  getCurrentUserLoginProvider,
   isCurrentUserAlreadyInInvitedTenant,
   loginWithPassword,
   signOutCurrentUser,
+  existingAccountLogin,
   termsUrl = "/terms",
   privacyUrl = "/privacy",
   minimumPasswordLength = 8,
@@ -87,6 +96,7 @@ export function InvitationAcceptancePanel<TUser = unknown>({
   );
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAccountChoice, setShowAccountChoice] = useState(true);
   const [showExistingAccountLogin, setShowExistingAccountLogin] = useState(false);
   const [decliningInvitation, setDecliningInvitation] = useState(false);
   const [details, setDetails] = useState<InvitationDetails | null>(null);
@@ -161,7 +171,12 @@ export function InvitationAcceptancePanel<TUser = unknown>({
   const invitedByText = details ? formatInvitedBy(details) : "";
   const currentUserName = currentUser && getCurrentUserDisplayName ? getCurrentUserDisplayName(currentUser) : "";
   const currentUserEmail = currentUser && getCurrentUserEmail ? getCurrentUserEmail(currentUser) ?? "" : "";
+  const currentUserProvider = currentUser && getCurrentUserLoginProvider ? getCurrentUserLoginProvider(currentUser) ?? "" : "";
   const alreadyBelongsToTenant = !!(currentUser && details && isCurrentUserAlreadyInInvitedTenant?.(currentUser, details));
+  const currentEmailMatchesInvitation = !!details && sameEmail(currentUserEmail, details.email);
+  // An optional email projection may be unavailable. Only block known mismatches;
+  // the host still authorizes every connect request against the signed-in user.
+  const currentAccountRestrictedByEmail = !!currentUser && !!details && !!currentUserEmail.trim() && !alreadyBelongsToTenant && !details.canChangeEmailAddress && !currentEmailMatchesInvitation;
   const showPendingInvitationActions = !!details && details.status === "pending" && details.isValid !== false;
   const extensionContent =
     typeof createAccountExtension?.content === "function"
@@ -178,6 +193,30 @@ export function InvitationAcceptancePanel<TUser = unknown>({
 
   const setOperationError = (messages: Array<string | ReactNode>) => {
     setFeedback({ tone: "danger", messages });
+  };
+
+  const switchToExistingAccountLogin = () => {
+    clearFeedback();
+    setDecliningInvitation(false);
+    setResponseMessage("");
+    setShowAccountChoice(false);
+    setShowExistingAccountLogin(true);
+  };
+
+  const switchToCreateAccount = () => {
+    clearFeedback();
+    setDecliningInvitation(false);
+    setResponseMessage("");
+    setShowAccountChoice(false);
+    setShowExistingAccountLogin(false);
+  };
+
+  const openDeclineInvitation = (message = "") => {
+    clearFeedback();
+    setShowExistingAccountLogin(false);
+    setShowAccountChoice(false);
+    setResponseMessage(message);
+    setDecliningInvitation(true);
   };
 
   const validateCreateAccount = () => {
@@ -348,7 +387,7 @@ export function InvitationAcceptancePanel<TUser = unknown>({
         await signOutCurrentUser();
       }
 
-      setShowExistingAccountLogin(true);
+      switchToExistingAccountLogin();
     } catch (error) {
       setOperationError([error instanceof Error ? error.message : text.connectFailedMessage]);
     } finally {
@@ -406,28 +445,49 @@ export function InvitationAcceptancePanel<TUser = unknown>({
   return (
     <div className={[classNames?.container ?? "col-12 my-4", className].filter(Boolean).join(" ")}>
       <div className={classNames?.card ?? "card"}>
-        <div className="card-body">
-          <h3 className="card-title">{decliningInvitation ? text.declineTitle : text.title}</h3>
+        <div className={classNames?.body ?? "card-body"}>
+          <h3 className="card-title">{text.title}</h3>
           {renderFeedback()}
 
           {details && (
             <>
               {decliningInvitation ? (
-                <div className={classNames?.declineCard ?? ""}>
+                <>
+                  <div className={classNames?.infoAlert ?? "alert alert-info"}>
+                    <p className="mb-2">
+                      {formatAuthText(text.invitedToJoinMessage, {
+                        accountName: details.accountName ?? "",
+                        email: details.email
+                      })}
+                    </p>
+                    {invitedByText && (
+                      <p className="mb-0">
+                        {formatAuthText(text.invitationSentByMessage, { invitedBy: invitedByText })}
+                      </p>
+                    )}
+                  </div>
+                  <div className={classNames?.declineCard ?? ""}>
+                  <h5>{text.declineTitle}</h5>
                   <div className="alert alert-danger">{text.declineConfirmationBody}</div>
                   <div className="mb-3">
                     <label className="form-label" htmlFor={declineMessageId}>{text.declineMessageLabel}</label>
                     <textarea id={declineMessageId} className="form-control" rows={3} value={responseMessage} onChange={event => setResponseMessage(event.target.value)} />
                   </div>
                   <div className="d-flex justify-content-end gap-2">
-                    <button type="button" className="btn btn-secondary" disabled={isSubmitting} onClick={() => setDecliningInvitation(false)}>
+                    <button type="button" className="btn btn-secondary" disabled={isSubmitting} onClick={() => {
+                      clearFeedback();
+                      setResponseMessage("");
+                      setShowAccountChoice(!currentUser);
+                      setDecliningInvitation(false);
+                    }}>
                       {text.cancelLabel}
                     </button>
                     <button type="button" className="btn btn-danger" disabled={isSubmitting} onClick={() => void declineInvitation()}>
                       {isSubmitting ? text.decliningInvitationLabel : text.declineInvitationLabel}
                     </button>
                   </div>
-                </div>
+                  </div>
+                </>
               ) : (
                 <>
                   <div className={classNames?.infoAlert ?? "alert alert-info"}>
@@ -447,7 +507,7 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                     {showPendingInvitationActions && (
                       <p className="mb-0">
                         {text.declineInvitationHintMessage}{" "}
-                        <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => setDecliningInvitation(true)}>
+                        <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => openDeclineInvitation()}>
                           {text.declineLinkLabel}
                         </button>
                       </p>
@@ -458,53 +518,107 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                     <div className={classNames?.currentAccountCard ?? "card border-0 mb-4"}>
                       <div className="card-body px-0">
                         <h5>{text.useCurrentAccountHeading}</h5>
-                        <div className="text-muted small mb-3">
-                          {formatAuthText(text.loggedInAsMessage, {
-                            name: currentUserName || currentUserEmail || "Current user",
-                            email: currentUserEmail
+                        <div className="text-light small mb-3">
+                          <strong>{text.currentAccountIntroMessage}</strong>
+                          <br />
+                          {formatAuthText(text.currentAccountDetailsMessage, {
+                            name: currentUserName || currentUserEmail || text.currentUserFallbackLabel,
+                            email: currentUserEmail,
+                            provider: currentUserProvider || text.loginProviderFallbackLabel
                           })}
                         </div>
-                        <div className="alert alert-info mb-3">
-                          {alreadyBelongsToTenant ? text.alreadyBelongsMessage : text.useCurrentAccountDescription}
-                        </div>
-                        {!alreadyBelongsToTenant && (
-                          <div className="mb-3">
+                        {alreadyBelongsToTenant ? (
+                          <>
+                            <div className="alert alert-info mb-3">{text.alreadyBelongsMessage}</div>
+                            <button type="button" className="btn btn-outline-secondary" disabled={isSubmitting} onClick={() => void switchAccount()}>
+                              {isSubmitting ? text.switchingAccountLabel : text.useAnotherAccountLabel}
+                            </button>
+                          </>
+                        ) : currentAccountRestrictedByEmail ? (
+                          <>
+                            <div className="alert alert-info mb-3">
+                              {formatAuthText(text.restrictedEmailMessage, { invitedEmail: details.email })}
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary"
+                              disabled={isSubmitting}
+                              onClick={() => openDeclineInvitation(formatAuthText(text.requestInvitationUpdateMessage, { email: currentUserEmail }))}
+                            >
+                              {text.requestInvitationUpdateLabel}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="alert alert-info mb-3">{text.useCurrentAccountDescription}</div>
+                            <div className="d-flex flex-wrap gap-2">
                             <button type="button" className="btn btn-primary" disabled={isSubmitting} onClick={() => void connectCurrentAccount()}>
                               {isSubmitting ? text.usingCurrentAccountLabel : text.useCurrentAccountLabel}
                             </button>
-                          </div>
+                              <button type="button" className="btn btn-outline-secondary" disabled={isSubmitting} onClick={() => void switchAccount()}>
+                                {isSubmitting ? text.switchingAccountLabel : text.useAnotherAccountLabel}
+                              </button>
+                            </div>
+                          </>
                         )}
-                        <button type="button" className="btn btn-outline-secondary" disabled={isSubmitting} onClick={() => void switchAccount()}>
-                          {isSubmitting ? text.switchingAccountLabel : text.useAnotherAccountLabel}
-                        </button>
                       </div>
                     </div>
                   )}
 
                   {showPendingInvitationActions && !currentUser && (
-                    <div className={showExistingAccountLogin ? classNames?.existingAccountCard ?? "card" : classNames?.createAccountCard ?? "card"}>
+                    <div className={showAccountChoice ? classNames?.currentAccountCard ?? "card" : showExistingAccountLogin ? classNames?.existingAccountCard ?? "card" : classNames?.createAccountCard ?? "card"}>
                       <div className="card-body">
-                        {showExistingAccountLogin ? (
+                        {showAccountChoice ? (
                           <>
-                            <h5>{text.existingAccountHeading}</h5>
-                            <div className="row g-3">
-                              <div className="col-12 col-md-6">
-                                <label className="form-label" htmlFor={existingEmailId}>{text.existingAccountEmailLabel}</label>
-                                <input id={existingEmailId} type="email" className="form-control" value={existingEmail} onChange={event => setExistingEmail(event.target.value)} />
-                              </div>
-                              <div className="col-12 col-md-6">
-                                <label className="form-label" htmlFor={existingPasswordId}>{text.existingAccountPasswordLabel}</label>
-                                <input id={existingPasswordId} type="password" className="form-control" value={existingPassword} onChange={event => setExistingPassword(event.target.value)} />
-                              </div>
-                            </div>
-                            <div className="mt-3 d-grid d-md-flex justify-content-md-end gap-2">
-                              <button type="button" className="btn btn-secondary" disabled={isSubmitting} onClick={() => setShowExistingAccountLogin(false)}>
+                            <h5>{text.accountChoiceHeading}</h5>
+                            <p className="mb-3">{text.accountChoiceDescription}</p>
+                            <div className="d-flex flex-wrap gap-2">
+                              <button type="button" className="btn btn-primary" disabled={isSubmitting} onClick={switchToExistingAccountLogin}>
+                                {text.existingAccountHeading}
+                              </button>
+                              <button type="button" className="btn btn-outline-secondary" disabled={isSubmitting} onClick={switchToCreateAccount}>
                                 {text.createNewAccountInsteadLabel}
                               </button>
-                              <button type="button" className="btn btn-primary" disabled={isSubmitting} onClick={() => void connectExistingAccount()}>
-                                {isSubmitting ? text.connectingExistingAccountLabel : text.connectExistingAccountLabel}
-                              </button>
                             </div>
+                          </>
+                        ) : showExistingAccountLogin ? (
+                          <>
+                            <h5>{text.existingAccountHeading}</h5>
+                            {!details.canChangeEmailAddress && (
+                              <div className="alert alert-info py-2">
+                                {formatAuthText(text.restrictedLoginGuidanceMessage, { invitedEmail: details.email })}
+                              </div>
+                            )}
+                            {existingAccountLogin ? (
+                              <LoginPanel
+                                key={`invitation-login-${details.canChangeEmailAddress ? "any" : details.email}`}
+                                {...existingAccountLogin}
+                                initialLoginIdentifier={details.canChangeEmailAddress ? undefined : details.email}
+                                loginIdentifierReadOnly={!details.canChangeEmailAddress}
+                                onAuthenticated={() => void connectCurrentAccount()}
+                              />
+                            ) : (
+                              <>
+                                <div className="row g-3">
+                                  <div className="col-12 col-md-6">
+                                    <label className="form-label" htmlFor={existingEmailId}>{text.existingAccountEmailLabel}</label>
+                                    <input id={existingEmailId} type="email" className="form-control" value={existingEmail} readOnly={!details.canChangeEmailAddress} onChange={event => setExistingEmail(event.target.value)} />
+                                  </div>
+                                  <div className="col-12 col-md-6">
+                                    <label className="form-label" htmlFor={existingPasswordId}>{text.existingAccountPasswordLabel}</label>
+                                    <input id={existingPasswordId} type="password" className="form-control" value={existingPassword} onChange={event => setExistingPassword(event.target.value)} />
+                                  </div>
+                                </div>
+                                <div className="mt-3 d-flex justify-content-end">
+                                  <button type="button" className="btn btn-primary" disabled={isSubmitting} onClick={() => void connectExistingAccount()}>
+                                    {isSubmitting ? text.connectingExistingAccountLabel : text.connectExistingAccountLabel}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                            <button type="button" className="btn btn-link px-0 mt-3" disabled={isSubmitting} onClick={switchToCreateAccount}>
+                              {text.createNewAccountInsteadLabel}
+                            </button>
                           </>
                         ) : (
                           <>
@@ -560,8 +674,8 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                                 </div>
                               </div>
                             </div>
-                            <div className="mt-3 d-grid d-md-flex justify-content-md-end gap-2">
-                              <button type="button" className="btn btn-secondary" disabled={isSubmitting} onClick={() => setShowExistingAccountLogin(true)}>
+                            <div className="mt-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                              <button type="button" className="btn btn-link px-0" disabled={isSubmitting} onClick={switchToExistingAccountLogin}>
                                 {text.alreadyHaveAccountLabel}
                               </button>
                               <button type="button" className="btn btn-primary" disabled={isSubmitting} onClick={() => void acceptInvitation()}>

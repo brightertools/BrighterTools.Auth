@@ -262,7 +262,7 @@ export function AccountLoginMethodsManager({
     setBusyAction("notification-email");
     clearFeedback();
     try {
-      const response = await loginMethods.beginNotificationEmailChange({ email, deliveryMode: "Code", returnUrl: notificationEmailReturnUrl });
+      const response = await loginMethods.beginNotificationEmailChange({ email, addOnly: true, deliveryMode: "Code", returnUrl: notificationEmailReturnUrl });
       if (!response.success || !response.data) {
         setOperationError(response.message ?? accountText.notificationEmailVerificationStartFailedMessage);
         return;
@@ -275,6 +275,27 @@ export function AccountLoginMethodsManager({
       }
     } catch (err) {
       setOperationError(err instanceof Error ? err.message : accountText.notificationEmailVerificationStartFailedMessage);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const manageContactEmail = async (email: string, remove: boolean) => {
+    if (busyAction) return;
+    setBusyAction("contact-email");
+    clearFeedback();
+    try {
+      const response = await (remove ? loginMethods.removeContactEmail(email) : loginMethods.selectNotificationEmail(email));
+      if (!response.success || !response.data) {
+        setOperationError(response.message ?? accountText.contactUpdateFailedMessage);
+        return;
+      }
+      setDetails(response.data);
+      setNotificationChallenge(null);
+      setNotificationVerificationCode("");
+      setMessage(remove ? accountText.contactRemovedMessage : accountText.notificationSelectionUpdatedMessage);
+    } catch (err) {
+      setOperationError(err instanceof Error ? err.message : accountText.contactUpdateFailedMessage);
     } finally {
       setBusyAction(null);
     }
@@ -451,6 +472,8 @@ export function AccountLoginMethodsManager({
           onVerifyLoginEmailCode={verifyEmailCode}
           onRequestNotificationEmailChange={email => requestNotificationEmailChange(email)}
           onVerifyNotificationEmailCode={verifyNotificationEmailCode}
+          onSelectNotificationEmail={email => manageContactEmail(email, false)}
+          onRemoveContactEmail={email => manageContactEmail(email, true)}
           onRequestPasswordSetup={requestPasswordSetup}
           onCompletePasswordSetup={completePasswordSetup}
           onChangePassword={changePassword}

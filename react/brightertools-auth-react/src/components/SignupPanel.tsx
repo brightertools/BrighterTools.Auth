@@ -445,8 +445,10 @@ export function SignupPanel({
           </div>
         )}
         {signupAgeGateEnabled && signupMinimumAgeConfirmationRequired && (
-          <label className={`d-flex gap-2 align-items-start mb-3${ageGateTouched && !minimumAgeConfirmed ? " text-danger" : ""}`}>
+          <div className={`form-check mb-3${ageGateTouched && !minimumAgeConfirmed ? " text-danger" : ""}`}>
             <input
+              id="bt-signup-minimum-age"
+              className={`form-check-input${ageGateTouched && !minimumAgeConfirmed ? " is-invalid" : ""}`}
               type="checkbox"
               checked={minimumAgeConfirmed}
               aria-invalid={ageGateTouched && !minimumAgeConfirmed}
@@ -458,8 +460,10 @@ export function SignupPanel({
                 }
               }}
             />
-            <span>{formatAuthText(signupText.minimumAgeCheckboxLabel, { minimumAge: minimumSignupAge })}</span>
-          </label>
+            <label className="form-check-label small" htmlFor="bt-signup-minimum-age">
+              {formatAuthText(signupText.minimumAgeCheckboxLabel, { minimumAge: minimumSignupAge })}
+            </label>
+          </div>
         )}
         <LegalConsentCheckbox
           checked={legalConsentAccepted}

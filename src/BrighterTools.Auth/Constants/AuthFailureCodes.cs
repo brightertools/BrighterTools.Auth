@@ -5,6 +5,7 @@ namespace BrighterTools.Auth.Constants;
 /// </summary>
 public static class AuthFailureCodes
 {
+    public const string EmailAlreadyRegistered = "email_already_registered";
     public const string ExternalProviderMisconfigured = "external_provider_misconfigured";
     public const string ExternalProviderCredentialInvalid = "external_provider_credential_invalid";
     public const string ExternalLoginNotLinked = "external_login_not_linked";

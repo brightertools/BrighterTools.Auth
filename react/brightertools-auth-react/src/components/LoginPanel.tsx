@@ -49,6 +49,8 @@ export interface LoginPanelProps {
   tenantId?: string;
   allowUsernameOrEmail?: boolean;
   emailLoginButtonLabel?: string;
+  initialLoginIdentifier?: string;
+  loginIdentifierReadOnly?: boolean;
   onAuthenticated?: (returnUrl?: string) => void;
   onError?: (message: string, code?: string, provider?: AuthProviderType) => void;
   transformError?: (message: string, code?: string, provider?: AuthProviderType) => string;
@@ -72,6 +74,8 @@ export function LoginPanel({
   tenantId,
   allowUsernameOrEmail = false,
   emailLoginButtonLabel,
+  initialLoginIdentifier,
+  loginIdentifierReadOnly = false,
   onAuthenticated,
   onError,
   transformError
@@ -95,13 +99,19 @@ export function LoginPanel({
   const [showEmailForm, setShowEmailForm] = useState(resolvedLoginEmailUi.emailDisplayMode === "inline");
   const [showPasswordlessEmailForm, setShowPasswordlessEmailForm] = useState(false);
   const [busyProvider, setBusyProvider] = useState<AuthProviderType | null>(null);
-  const [loginIdentifier, setLoginIdentifier] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState(initialLoginIdentifier ?? "");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [passwordlessChallengeId, setPasswordlessChallengeId] = useState<string | null>(null);
   const [passwordlessBusy, setPasswordlessBusy] = useState(false);
   const loginIdentifierId = useId();
+
+  useEffect(() => {
+    if (initialLoginIdentifier !== undefined) {
+      setLoginIdentifier(initialLoginIdentifier);
+    }
+  }, [initialLoginIdentifier]);
 
   useEffect(() => {
     if (resolvedLoginEmailUi.emailDisplayMode === "inline") {
@@ -289,6 +299,7 @@ export function LoginPanel({
             value={loginIdentifier}
             onChange={event => setLoginIdentifier(event.target.value)}
             autoComplete={allowUsernameOrEmail ? "username" : "email"}
+            readOnly={loginIdentifierReadOnly}
           />
         </div>
         <PasswordField className="mb-3" label={passwordLoginText.passwordLabel ?? loginText.passwordLabel} value={password} autoComplete="current-password" onChange={setPassword} />

@@ -126,6 +126,7 @@ export interface VerifyLoginEmailChangeResponse {
 
 export interface BeginNotificationEmailChangeRequest {
   email: string;
+  addOnly?: boolean;
   deliveryMode?: EmailChallengeDeliveryMode;
   returnUrl?: string;
 }
