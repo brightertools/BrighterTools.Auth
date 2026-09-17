@@ -6,7 +6,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BrighterTools/BrighterTools.Auth.git",
+    "url": "git+https://github.com/brightertools/BrighterTools.Auth.git",
     "directory": "react/brightertools-auth-react"
   },
   "homepage": "https://github.com/BrighterTools/BrighterTools.Auth#readme",
