@@ -8,6 +8,8 @@ npm install @brightertools/auth-react
 
 The host app owns routing, localization storage, API endpoints, token persistence policy, and provider credentials. This package owns reusable UI workflow components and typed adapter contracts.
 
+Version 2.0.1 retains refresh credentials through transient failures while `isAuthenticated` and `user` enforce JWT expiry. Do not use a non-null `session` as an authentication guard. Upgrade the backend to BrighterTools.Auth 1.1.1 and preserve `invalid_refresh_token` failure codes. Refresh retries are bounded and honor Retry-After; `createAuthApi` defaults to a 30-second timeout. Web Locks coordinate same-origin tabs where supported. See the repository's `docs/refresh-resilience.md` for rollout details.
+
 Build and validate:
 
 Use Node.js 24.15 or newer on the 24.x line for the current development tools.

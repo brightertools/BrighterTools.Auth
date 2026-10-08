@@ -117,6 +117,24 @@ public sealed class DefaultAuthOrchestratorTests
         Assert.Equal("tenant-a", response.Session.CurrentTenant?.TenantId);
     }
 
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("expired")]
+    [InlineData("revoked")]
+    public async Task Refresh_InvalidTokensHaveStableFailureCode(string state)
+    {
+        var harness = TestHarness.Create();
+        if (state != "missing") harness.RefreshTokenStore.StoredToken = new AuthRefreshToken
+        {
+            Token = "refresh-0", UserId = "user-1", Provider = AuthProviderType.Password,
+            ExpiresAtUtc = state == "expired" ? DateTimeOffset.UnixEpoch : DateTimeOffset.UtcNow.AddDays(1),
+            IsRevoked = state == "revoked"
+        };
+        var error = await Assert.ThrowsAsync<BrighterTools.Auth.Exceptions.AuthFailureException>(() =>
+            harness.Orchestrator.RefreshAsync(new RefreshTokenRequest { RefreshToken = "refresh-0" }));
+        Assert.Equal("invalid_refresh_token", error.Code);
+    }
+
     [Fact]
     public async Task Refresh_RotatesRefreshToken()
     {

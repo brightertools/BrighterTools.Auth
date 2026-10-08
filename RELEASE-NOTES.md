@@ -1,3 +1,12 @@
+# Release 1.1.1 / React 2.0.1 — 2026-10-08
+
+- Preserve refresh sessions during transient transport/server failures; bounded retries respect Retry-After.
+- Enforce access-token expiry independently of retained refresh credentials; avoid form unmounts during valid background refresh.
+- Ignore stale refresh responses after logout/session replacement; coordinate same-origin tab refreshes with Web Locks where available.
+- Emit stable `invalid_refresh_token` backend failures. Deploy the backend before the frontend and preserve this code in host envelopes.
+- Patch the source-map-js test dependency for the release audit gate. Unrelated in-progress Microsoft/account-panel changes are excluded.
+- See [refresh integration notes](docs/refresh-resilience.md) for host requirements and limitations. No schema, token-lifetime or replay-protection change.
+
 # Release 1.1.0 — 2026-09-17
 
 This release updates the existing library; SQL Server defaults and host-owned

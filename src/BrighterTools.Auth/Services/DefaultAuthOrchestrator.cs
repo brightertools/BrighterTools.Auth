@@ -305,7 +305,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default)
     {
         var refreshToken = await _refreshTokenStore.FindAsync(request.RefreshToken, cancellationToken)
-            ?? throw new InvalidOperationException("Refresh token is invalid.");
+            ?? throw new AuthFailureException("invalid_refresh_token", "Refresh token is invalid.");
 
         if (refreshToken.IsRevoked)
         {
@@ -314,12 +314,12 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
                 await _refreshTokenStore.RevokeAsync(request.RefreshToken, "revoked_token_reused", cancellationToken);
             }
 
-            throw new InvalidOperationException("Refresh token is invalid.");
+            throw new AuthFailureException("invalid_refresh_token", "Refresh token is invalid.");
         }
 
         if (refreshToken.ExpiresAtUtc <= _clock.UtcNow)
         {
-            throw new InvalidOperationException("Refresh token is invalid.");
+            throw new AuthFailureException("invalid_refresh_token", "Refresh token is invalid.");
         }
 
         var user = await RequireUserAsync(refreshToken.UserId, cancellationToken);
