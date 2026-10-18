@@ -310,6 +310,8 @@ export interface InvitationManagementTextOverrides {
   acceptedStatusLabel?: string;
   declinedStatusLabel?: string;
   expiredStatusLabel?: string;
+  revokedStatusLabel?: string;
+  cancelledStatusLabel?: string;
   unknownStatusLabel?: string;
   copyLinkLabel?: string;
   copiedLinkMessage?: string;
@@ -697,6 +699,8 @@ export const defaultInvitationManagementText: Required<InvitationManagementTextO
   acceptedStatusLabel: "Accepted",
   declinedStatusLabel: "Declined",
   expiredStatusLabel: "Expired",
+  revokedStatusLabel: "Revoked",
+  cancelledStatusLabel: "Cancelled",
   unknownStatusLabel: "Unknown",
   copyLinkLabel: "Copy Link",
   copiedLinkMessage: "Invite link copied to clipboard.",

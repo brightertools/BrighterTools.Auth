@@ -32,6 +32,8 @@ export interface AuthProviderProps<TUser = unknown, TPayload extends JwtPayload 
   storageKey?: string;
   refreshEarlyMs?: number;
   clockSkewMs?: number;
+  /** Bounded automatic retries. Reconnection/focus may start a new retry cycle. */
+  refreshRetryDelaysMs?: readonly number[];
   mapUser?: (session: AuthSession, payload: TPayload) => TUser | null;
   onUnauthorized?: () => void;
 }
@@ -59,6 +61,13 @@ export const decodeJwtPayload = <TPayload extends JwtPayload = JwtPayload>(token
 };
 
 const getAccessToken = (session: AuthSession | null) => session?.accessToken || null;
+const defaultRetryDelays = [1_000, 5_000, 15_000, 30_000, 60_000];
+const accessExpiresAt = (session: AuthSession | null): number => {
+  const exp = decodeJwtPayload(getAccessToken(session))?.exp;
+  return typeof exp === "number" && Number.isFinite(exp) ? exp * 1000 : 0;
+};
+const sameSession = (left: AuthSession | null, right: AuthSession | null) =>
+  left?.accessToken === right?.accessToken && left?.refreshToken === right?.refreshToken;
 
 export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
   api,
@@ -66,6 +75,7 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
   storageKey = "bt.auth.session",
   refreshEarlyMs = 60_000,
   clockSkewMs = 30_000,
+  refreshRetryDelaysMs = defaultRetryDelays,
   mapUser,
   onUnauthorized,
   children
@@ -74,7 +84,14 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
   const [loading, setLoading] = useState(false);
   const sessionRef = useRef<AuthSession | null>(session);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshInFlightRef = useRef(false);
+  const refreshInFlightRef = useRef<Promise<boolean> | null>(null);
+  const generationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const retryIndexRef = useRef(0);
+  const retryAtRef = useRef(0);
+  const failedRef = useRef(false);
+  const refreshCallRef = useRef<() => Promise<boolean>>(async () => false);
+  const [now, setNow] = useState(Date.now());
 
   const clearRefreshTimer = useCallback(() => {
     if (refreshTimerRef.current !== null) {
@@ -84,36 +101,74 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
   }, []);
 
   const setSession = useCallback((nextSession: AuthSession | null) => {
+    generationRef.current++;
+    clearRefreshTimer();
+    retryIndexRef.current = 0;
+    failedRef.current = false;
     sessionRef.current = nextSession;
     setSessionState(nextSession);
+    setNow(Date.now());
     storage.set(nextSession);
-  }, [storage]);
+  }, [clearRefreshTimer, storage]);
 
-  const refreshSession = useCallback(async (tenantId?: string, switchToCurrentTenant = false): Promise<boolean> => {
-    if (refreshInFlightRef.current) return false;
-    refreshInFlightRef.current = true;
-    setLoading(true);
-
-    try {
-      const current = sessionRef.current;
-      const response = await api.refresh({ refreshToken: current?.refreshToken ?? "", tenantId, switchToCurrentTenant });
-      if (!response.success || !response.data?.session) {
-        setSession(null);
-        onUnauthorized?.();
-        return false;
+  const refreshSession = useCallback((tenantId?: string, switchToCurrentTenant = false): Promise<boolean> => {
+    if (refreshInFlightRef.current) return refreshInFlightRef.current;
+    clearRefreshTimer();
+    const generation = generationRef.current;
+    const original = sessionRef.current;
+    const currentRequest = () => mountedRef.current && generationRef.current === generation;
+    const run = async (): Promise<boolean> => {
+      if (!currentRequest()) return false;
+      // Another tab may have rotated the token while this tab waited for the lock.
+      const stored = storage.get();
+      if (!sameSession(stored, original)) {
+        setSession(stored);
+        return accessExpiresAt(stored) > Date.now();
       }
-
-      setSession(response.data.session);
-      return true;
-    } catch {
-      setSession(null);
-      onUnauthorized?.();
+      const current = sessionRef.current;
+      if (!current) return false;
+      // Background refresh must not unmount an otherwise valid form.
+      setLoading(accessExpiresAt(current) <= Date.now());
+      try {
+        const response = await api.refresh({ refreshToken: current.refreshToken ?? "", tenantId, switchToCurrentTenant });
+        if (!currentRequest()) return false;
+        if (!sameSession(storage.get(), current)) { setSession(storage.get()); return false; }
+        if (response.success && response.data?.session && accessExpiresAt(response.data.session) > Date.now()) {
+          setSession(response.data.session);
+          return true;
+        }
+        const transportFailure = response.httpStatus === 0 || response.httpStatus === 408 || response.httpStatus === 429 || (response.httpStatus ?? 0) >= 500;
+        const terminal = !transportFailure && (response.httpStatus === 401 ||
+          ["invalid_refresh_token", "refresh_token_expired", "refresh_token_revoked", "session_revoked"].includes(response.code ?? ""));
+        if (terminal) { setSession(null); onUnauthorized?.(); return false; }
+        defer(response.retryAfterMs);
+      } catch {
+        if (currentRequest()) defer();
+      } finally {
+        if (mountedRef.current) setLoading(false);
+      }
       return false;
-    } finally {
-      refreshInFlightRef.current = false;
-      setLoading(false);
-    }
-  }, [api, onUnauthorized, setSession]);
+    };
+    const defer = (retryAfterMs = 0) => {
+      failedRef.current = true;
+      setNow(Date.now());
+      const delay = refreshRetryDelaysMs[retryIndexRef.current++];
+      retryAtRef.current = Date.now() + Math.max(delay ?? 30_000, retryAfterMs, 1_000);
+      if (delay !== undefined) refreshTimerRef.current = globalThis.setTimeout(
+        () => void refreshCallRef.current(), Math.min(2_147_483_647, retryAtRef.current - Date.now()));
+    };
+    // Serialize rotating refresh tokens between tabs on HTTPS browsers supporting Web Locks.
+    const task = Promise.resolve().then(() => typeof navigator !== "undefined" && navigator.locks
+      ? navigator.locks.request(`brightertools-refresh:${storageKey}`, run) : run()).catch(() => {
+        if (currentRequest()) defer();
+        return false;
+      }).finally(() => {
+        if (refreshInFlightRef.current === task) refreshInFlightRef.current = null;
+      });
+    refreshInFlightRef.current = task;
+    return task;
+  }, [api, clearRefreshTimer, onUnauthorized, refreshRetryDelaysMs, setSession, storage, storageKey]);
+  refreshCallRef.current = refreshSession;
 
   const scheduleRefresh = useCallback((nextSession: AuthSession | null) => {
     clearRefreshTimer();
@@ -133,15 +188,36 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
   }, [scheduleRefresh, session]);
 
   useEffect(() => {
+    const remaining = accessExpiresAt(session) - Date.now();
+    if (remaining <= 0) return;
+    const timer = globalThis.setTimeout(() => setNow(Date.now()), Math.min(remaining, 2_147_483_647));
+    return () => globalThis.clearTimeout(timer);
+  }, [session, now]);
+
+  useEffect(() => {
+    mountedRef.current = true;
     const onStorage = (event: StorageEvent) => {
       if (event.key !== storageKey) return;
-      setSessionState(storage.get());
-      sessionRef.current = storage.get();
+      generationRef.current++;
+      retryIndexRef.current = 0; failedRef.current = false;
+      const next = storage.get();
+      setSessionState(next); sessionRef.current = next; setNow(Date.now());
+    };
+    const resume = () => {
+      if (!sessionRef.current || !failedRef.current || Date.now() < retryAtRef.current) return;
+      retryIndexRef.current = 0;
+      void refreshCallRef.current();
     };
 
     globalThis.addEventListener?.("storage", onStorage);
+    globalThis.addEventListener?.("online", resume);
+    globalThis.addEventListener?.("focus", resume);
     return () => {
+      mountedRef.current = false;
+      generationRef.current++;
       globalThis.removeEventListener?.("storage", onStorage);
+      globalThis.removeEventListener?.("online", resume);
+      globalThis.removeEventListener?.("focus", resume);
       clearRefreshTimer();
     };
   }, [clearRefreshTimer, storage, storageKey]);
@@ -167,17 +243,19 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
   }, [api, setAuthenticatedSession]);
 
   const logout = useCallback(async () => {
+    const refreshToken = sessionRef.current?.refreshToken;
+    // Invalidate in-flight refresh before the logout request, not afterwards.
+    setSession(null);
     try {
-      await api.logout(sessionRef.current?.refreshToken ? { refreshToken: sessionRef.current.refreshToken } : undefined);
+      await api.logout(refreshToken ? { refreshToken } : undefined);
     } catch {
       // Logout should clear local state even if the server call fails.
     }
-
-    setSession(null);
   }, [api, setSession]);
 
   const payload = useMemo(() => decodeJwtPayload<TPayload>(getAccessToken(session)), [session]);
-  const user = useMemo(() => (session && payload && mapUser ? mapUser(session, payload) : null), [mapUser, payload, session]);
+  const isAuthenticated = accessExpiresAt(session) > Math.max(now, Date.now());
+  const user = useMemo(() => (isAuthenticated && session && payload && mapUser ? mapUser(session, payload) : null), [isAuthenticated, mapUser, payload, session]);
 
   const value = useMemo<AuthContextValue<TUser, TPayload>>(
     () => ({
@@ -185,7 +263,7 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
       user,
       payload,
       loading,
-      isAuthenticated: !!session?.accessToken,
+      isAuthenticated,
       api,
       setSession,
       setAuthenticatedSession,
@@ -195,7 +273,7 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
       refreshSession,
       logout
     }),
-    [api, externalLogin, externalSignup, loading, login, logout, payload, refreshSession, session, setAuthenticatedSession, setSession, user]
+    [api, externalLogin, externalSignup, isAuthenticated, loading, login, logout, payload, refreshSession, session, setAuthenticatedSession, setSession, user]
   );
 
   return <AuthContext.Provider value={value as AuthContextValue}>{children}</AuthContext.Provider>;

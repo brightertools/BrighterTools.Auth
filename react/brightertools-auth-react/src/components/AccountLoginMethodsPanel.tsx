@@ -520,14 +520,14 @@ export function AccountLoginMethodsPanel({
       )}
 
       <h2 className="h6 mt-3">{accountText.connectedProvidersHeading}</h2>
-      <div className="list-group mb-4">
+      <div className="bt-auth-connected-providers list-group mb-4">
         {providers.length === 0 ? (
           <div className="list-group-item text-muted small">{accountText.noConnectedProvidersMessage}</div>
         ) : providers.map(provider => (
           <div className="list-group-item d-flex flex-wrap align-items-center justify-content-between gap-2" key={`${provider.provider}-${provider.providerSubject}`}>
             <div>
               <strong>{providerLabel(provider.provider)}</strong>
-              {provider.email && <div className="small text-muted">{provider.email}</div>}
+              {provider.email && <div className="small text-muted text-break">{provider.email}</div>}
               {provider.emailVerified && <div className="small text-success fw-semibold">{formatAuthText(accountText.verifiedByProviderMessage, { provider: providerLabel(provider.provider) })}</div>}
             </div>
             <button type="button" className="btn btn-outline-danger btn-sm" disabled={busyProvider === provider.provider || usableMethodCount <= 1} onClick={() => void onUnlinkProvider(provider)}>
@@ -539,37 +539,37 @@ export function AccountLoginMethodsPanel({
 
       <div className="row g-3">
         {resolvedProviderUi.map(config => {
-          if (config.provider === "Google" && googleClientId) {
+          if (config.provider === "Google" && googleClientId && !hasGoogle) {
             return (
               <div className="col-md-6" key={config.provider}>
                 <div className="border rounded-3 p-3 h-100">
                   <h3 className="h6">{providerLabel("Google")}</h3>
-                  <p className="small text-muted">{hasGoogle ? formatAuthText(accountText.providerConnectedDescription, { provider: providerLabel("Google") }) : formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Google") })}</p>
-                  {!hasGoogle && onGoogleCredential && <GoogleCredentialButton clientId={googleClientId} text={config.googleText ?? "continue_with"} onCredential={onGoogleCredential} onError={() => undefined} />}
+                  <p className="small text-muted">{formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Google") })}</p>
+                  {onGoogleCredential && <GoogleCredentialButton clientId={googleClientId} text={config.googleText ?? "continue_with"} onCredential={onGoogleCredential} onError={() => undefined} />}
                 </div>
               </div>
             );
           }
 
-          if (config.provider === "Apple" && appleEnabled) {
+          if (config.provider === "Apple" && appleEnabled && !hasApple) {
             return (
               <div className="col-md-6" key={config.provider}>
                 <div className="border rounded-3 p-3 h-100">
                   <h3 className="h6">{providerLabel("Apple")}</h3>
-                  <p className="small text-muted">{hasApple ? formatAuthText(accountText.providerConnectedDescription, { provider: providerLabel("Apple") }) : formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Apple") })}</p>
-                  {!hasApple && onAppleClick && <AuthProviderButton variant="apple" label={config.label ?? accountText.connectAppleLabel} busyLabel={config.busyLabel ?? accountText.openingAppleLabel} busy={busyProvider === "Apple"} onClick={() => void onAppleClick()} />}
+                  <p className="small text-muted">{formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Apple") })}</p>
+                  {onAppleClick && <AuthProviderButton variant="apple" label={config.label ?? accountText.connectAppleLabel} busyLabel={config.busyLabel ?? accountText.openingAppleLabel} busy={busyProvider === "Apple"} onClick={() => void onAppleClick()} />}
                 </div>
               </div>
             );
           }
 
-          if (config.provider === "Microsoft" && microsoftEnabled) {
+          if (config.provider === "Microsoft" && microsoftEnabled && !hasMicrosoft) {
             return (
               <div className="col-md-6" key={config.provider}>
                 <div className="border rounded-3 p-3 h-100">
                   <h3 className="h6">{providerLabel("Microsoft")}</h3>
-                  <p className="small text-muted">{hasMicrosoft ? formatAuthText(accountText.providerConnectedDescription, { provider: providerLabel("Microsoft") }) : formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Microsoft") })}</p>
-                  {!hasMicrosoft && onMicrosoftClick && <AuthProviderButton variant="microsoft" label={config.label ?? accountText.connectMicrosoftLabel} busyLabel={config.busyLabel ?? accountText.openingMicrosoftLabel} busy={busyProvider === "Microsoft"} onClick={() => void onMicrosoftClick()} />}
+                  <p className="small text-muted">{formatAuthText(accountText.providerConnectDescription, { provider: providerLabel("Microsoft") })}</p>
+                  {onMicrosoftClick && <AuthProviderButton variant="microsoft" label={config.label ?? accountText.connectMicrosoftLabel} busyLabel={config.busyLabel ?? accountText.openingMicrosoftLabel} busy={busyProvider === "Microsoft"} onClick={() => void onMicrosoftClick()} />}
                 </div>
               </div>
             );

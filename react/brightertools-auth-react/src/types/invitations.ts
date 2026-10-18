@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { AuthProviderType } from "./auth";
 import type { AuthProviderUiConfig, AuthUiTextOverrides, LoginEmailUiOptions } from "../authUi";
 
-export type InvitationStatus = "pending" | "accepted" | "declined" | "expired" | "unknown";
+export type InvitationStatus = "pending" | "accepted" | "declined" | "expired" | "revoked" | "cancelled" | "unknown";
 
 export interface InvitationOperationResult<T = undefined> {
   success: boolean;

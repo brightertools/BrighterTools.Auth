@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AccountLoginMethodsPanel } from "../components/AccountLoginMethodsPanel";
 import type { AccountLoginMethods, AuthProviderType } from "../types/auth";
@@ -35,6 +35,35 @@ const createDetails = (): AccountLoginMethods => ({
 });
 
 describe("AccountLoginMethodsPanel", () => {
+  it.each([
+    ["Google", "Google"], ["Google", "2"],
+    ["Apple", "Apple"], ["Apple", "3"],
+    ["Microsoft", "Microsoft"], ["Microsoft", "4"]
+  ])("hides the connected %s tile (%s), retaining its email and removal action", (name, value) => {
+    const details = createDetails();
+    details.providers = [{ ...details.providers[0], provider: value as AuthProviderType, email: "provider@example.test" }];
+    const unlink = vi.fn();
+    const props = {
+      googleClientId: "google-client", appleEnabled: true, microsoftEnabled: true,
+      onRequestLoginEmailChange: vi.fn(), onVerifyLoginEmailCode: vi.fn(),
+      onRequestNotificationEmailChange: vi.fn(), onVerifyNotificationEmailCode: vi.fn(),
+      onRequestPasswordSetup: vi.fn(), onUnlinkProvider: unlink
+    };
+    const view = render(<AccountLoginMethodsPanel {...props} details={details} />);
+    expect(screen.queryByRole("heading", { name })).toBeNull();
+    expect(screen.queryByText(`${name} is connected.`)).toBeNull();
+    const row = screen.getByText("provider@example.test").closest(".list-group-item") as HTMLElement;
+    expect(row.closest(".bt-auth-connected-providers")).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: "Remove" }));
+    expect(unlink).toHaveBeenCalledWith(details.providers[0]);
+    expect(screen.getByRole("heading", { name: name === "Apple" ? "Google" : "Apple" })).toBeTruthy();
+    view.rerender(<AccountLoginMethodsPanel {...props} details={{ ...details, hasPassword: false }} />);
+    expect((within(row).getByRole("button", { name: "Remove" }) as HTMLButtonElement).disabled).toBe(true);
+    view.rerender(<AccountLoginMethodsPanel {...props} details={{ ...details, providers: [] }} />);
+    expect(screen.getByRole("heading", { name })).toBeTruthy();
+    expect(screen.getByText(`Connect your ${name} account for quick sign-in.`)).toBeTruthy();
+  });
+
   it.each(["privaterelay.appleid.com", "private.icloud.com"])("allows a verified %s address without demanding a personal address", domain => {
     const email = `relay@${domain}`;
     const details = createDetails();

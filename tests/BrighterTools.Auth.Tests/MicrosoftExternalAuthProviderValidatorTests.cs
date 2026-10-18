@@ -31,7 +31,7 @@ public sealed class MicrosoftExternalAuthProviderValidatorTests
         Assert.Equal(AuthProviderType.Microsoft, identity.Provider);
         Assert.Equal("microsoft-subject", identity.ProviderSubject);
         Assert.Equal("alice@example.com", identity.Email);
-        Assert.True(identity.EmailVerified);
+        Assert.False(identity.EmailVerified);
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public sealed class MicrosoftExternalAuthProviderValidatorTests
 
         Assert.Equal(AuthProviderType.Microsoft, identity.Provider);
         Assert.Equal("alice@example.com", identity.Email);
-        Assert.True(identity.EmailVerified);
+        Assert.False(identity.EmailVerified);
     }
 
     [Fact]
@@ -95,6 +95,20 @@ public sealed class MicrosoftExternalAuthProviderValidatorTests
     }
 
     private static TestMicrosoftExternalAuthProviderValidator CreateValidator(string audience, SecurityKey signingKey)
+        => CreateValidatorCore(audience, signingKey);
+
+    [Theory]
+    [InlineData(true, "alice@example.com", true)]
+    [InlineData(false, "alice@example.com", false)]
+    [InlineData(true, null, false)]
+    public async Task VerificationRequiresExplicitEvidenceAndAnAddress(bool verified, string? email, bool expected)
+    {
+        var key = CreateSigningKey();
+        var token = CreateToken(key, "client", ConsumerTenantId, $"https://login.live.com/{ConsumerTenantId}/v2.0", email, verified);
+        Assert.Equal(expected, (await CreateValidator("client", key).ValidateAsync(token)).EmailVerified);
+    }
+
+    private static TestMicrosoftExternalAuthProviderValidator CreateValidatorCore(string audience, SecurityKey signingKey)
     {
         var options = Microsoft.Extensions.Options.Options.Create(new BrighterToolsAuthOptions
         {
@@ -117,7 +131,7 @@ public sealed class MicrosoftExternalAuthProviderValidatorTests
     private static SymmetricSecurityKey CreateSigningKey()
         => new(Encoding.UTF8.GetBytes("super-secret-signing-key-1234567890"));
 
-    private static string CreateToken(SecurityKey signingKey, string audience, string? tenantId, string issuer, string? email)
+    private static string CreateToken(SecurityKey signingKey, string audience, string? tenantId, string issuer, string? email, bool? verified = null)
     {
         var claims = new List<Claim>
         {
@@ -134,6 +148,7 @@ public sealed class MicrosoftExternalAuthProviderValidatorTests
         {
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, email));
         }
+        if (verified.HasValue) claims.Add(new Claim("email_verified", verified.Value ? "true" : "false", ClaimValueTypes.Boolean));
 
         var token = new JwtSecurityToken(
             issuer: issuer,

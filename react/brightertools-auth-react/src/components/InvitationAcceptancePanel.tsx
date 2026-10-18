@@ -26,6 +26,9 @@ export interface InvitationAcceptancePanelProps<TUser = unknown> {
   adapter: Pick<InvitationServiceAdapter, "getInvitationDetails" | "acceptInvitation" | "connectInvitation" | "declineInvitation">;
   textOverrides?: AuthUiTextOverrides;
   currentUser?: TUser | null;
+  canCurrentUserAccept?: boolean;
+  allowExistingLoginIdentifierEdit?: boolean;
+  allowCreateAccountEmailChange?: boolean;
   getCurrentUserDisplayName?: (user: TUser) => string;
   getCurrentUserEmail?: (user: TUser) => string | undefined;
   getCurrentUserLoginProvider?: (user: TUser) => string | undefined;
@@ -73,6 +76,9 @@ export function InvitationAcceptancePanel<TUser = unknown>({
   adapter,
   textOverrides,
   currentUser,
+  canCurrentUserAccept,
+  allowExistingLoginIdentifierEdit = false,
+  allowCreateAccountEmailChange = true,
   getCurrentUserDisplayName,
   getCurrentUserEmail,
   getCurrentUserLoginProvider,
@@ -176,7 +182,7 @@ export function InvitationAcceptancePanel<TUser = unknown>({
   const currentEmailMatchesInvitation = !!details && sameEmail(currentUserEmail, details.email);
   // An optional email projection may be unavailable. Only block known mismatches;
   // the host still authorizes every connect request against the signed-in user.
-  const currentAccountRestrictedByEmail = !!currentUser && !!details && !!currentUserEmail.trim() && !alreadyBelongsToTenant && !details.canChangeEmailAddress && !currentEmailMatchesInvitation;
+  const currentAccountRestrictedByEmail = !!currentUser && !!details && !!currentUserEmail.trim() && !alreadyBelongsToTenant && !details.canChangeEmailAddress && !(canCurrentUserAccept ?? currentEmailMatchesInvitation);
   const showPendingInvitationActions = !!details && details.status === "pending" && details.isValid !== false;
   const extensionContent =
     typeof createAccountExtension?.content === "function"
@@ -547,6 +553,9 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                             >
                               {text.requestInvitationUpdateLabel}
                             </button>
+                            {signOutCurrentUser && <button type="button" className="btn btn-outline-secondary ms-2" disabled={isSubmitting} onClick={() => void switchAccount()}>
+                              {isSubmitting ? text.switchingAccountLabel : text.useAnotherAccountLabel}
+                            </button>}
                           </>
                         ) : (
                           <>
@@ -594,7 +603,7 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                                 key={`invitation-login-${details.canChangeEmailAddress ? "any" : details.email}`}
                                 {...existingAccountLogin}
                                 initialLoginIdentifier={details.canChangeEmailAddress ? undefined : details.email}
-                                loginIdentifierReadOnly={!details.canChangeEmailAddress}
+                                loginIdentifierReadOnly={!details.canChangeEmailAddress && !allowExistingLoginIdentifierEdit}
                                 onAuthenticated={() => void connectCurrentAccount()}
                               />
                             ) : (
@@ -602,7 +611,7 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                                 <div className="row g-3">
                                   <div className="col-12 col-md-6">
                                     <label className="form-label" htmlFor={existingEmailId}>{text.existingAccountEmailLabel}</label>
-                                    <input id={existingEmailId} type="email" className="form-control" value={existingEmail} readOnly={!details.canChangeEmailAddress} onChange={event => setExistingEmail(event.target.value)} />
+                                    <input id={existingEmailId} type="email" className="form-control" value={existingEmail} readOnly={!details.canChangeEmailAddress && !allowExistingLoginIdentifierEdit} onChange={event => setExistingEmail(event.target.value)} />
                                   </div>
                                   <div className="col-12 col-md-6">
                                     <label className="form-label" htmlFor={existingPasswordId}>{text.existingAccountPasswordLabel}</label>
@@ -639,7 +648,7 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                                   type="email"
                                   className="form-control"
                                   value={email}
-                                  readOnly={!details.canChangeEmailAddress}
+                                  readOnly={!details.canChangeEmailAddress || !allowCreateAccountEmailChange}
                                   onChange={event => setEmail(event.target.value)}
                                 />
                               </div>

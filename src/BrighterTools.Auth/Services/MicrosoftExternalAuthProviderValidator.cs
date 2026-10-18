@@ -72,7 +72,7 @@ public class MicrosoftExternalAuthProviderValidator : OidcExternalAuthProviderVa
             ProviderSubject = identity.ProviderSubject,
             Email = string.IsNullOrWhiteSpace(email) ? null : email,
             DisplayName = identity.DisplayName,
-            EmailVerified = !string.IsNullOrWhiteSpace(email),
+            EmailVerified = !string.IsNullOrWhiteSpace(email) && identity.EmailVerified,
             Claims = identity.Claims
         };
     }

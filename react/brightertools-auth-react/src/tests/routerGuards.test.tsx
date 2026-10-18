@@ -5,7 +5,7 @@ import { AuthGuard } from "../guards/AuthGuard";
 import { OnboardingGuard } from "../guards/OnboardingGuard";
 
 const state = vi.hoisted(() => ({ session: null as null | { onboarding?: { required: boolean } } }));
-vi.mock("../hooks/useAuth", () => ({ useAuth: () => state }));
+vi.mock("../hooks/useAuth", () => ({ useAuth: () => ({ ...state, isAuthenticated: !!state.session }) }));
 beforeEach(() => { state.session = null; });
 
 const renderRoute = () => render(<MemoryRouter initialEntries={["/private"]}><Routes>

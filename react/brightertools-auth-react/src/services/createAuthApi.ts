@@ -38,6 +38,9 @@ export interface ApiEnvelope<T> {
   message?: string;
   code?: string;
   data?: T;
+  /** Transport metadata, set by this adapter rather than the response body. */
+  httpStatus?: number;
+  retryAfterMs?: number;
 }
 
 export interface AuthApiEndpoints {
@@ -118,6 +121,7 @@ export interface CreateAuthApiOptions {
   fetcher?: typeof fetch;
   getAccessToken?: () => string | null | undefined;
   onUnauthorized?: () => void;
+  requestTimeoutMs?: number;
 }
 
 const defaultEndpoints = (apiPrefix: string): AuthApiEndpoints => ({
@@ -178,41 +182,49 @@ export const createAuthApi = (optionsOrBaseUrl: CreateAuthApiOptions | string = 
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    let response: Response;
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(() => controller.abort(), options.requestTimeoutMs ?? 30_000);
     try {
-      response = await fetcher(`${getBaseUrl()}${path}`, {
+      const response = await fetcher(`${getBaseUrl()}${path}`, {
         method: "POST",
         headers,
         credentials: "include",
-        body: JSON.stringify(body ?? {})
+        body: JSON.stringify(body ?? {}),
+        signal: controller.signal
       });
-    } catch {
-      return {
-        success: false,
-        message: defaultRequestErrorMessage
-      };
-    }
-
-    if (response.status === 401) {
+    // Refresh rejection is handled by the provider after stale-response checks.
+    if (response.status === 401 && path !== endpoints.refresh) {
       options.onUnauthorized?.();
     }
 
     const text = await response.text();
     const parsed = parseResponseBody(text) as ApiEnvelope<TResponse> | undefined;
+    const retryAfter = response.headers.get("Retry-After");
+    const seconds = retryAfter === null ? NaN : Number(retryAfter);
+    const retryAt = retryAfter === null ? NaN : Date.parse(retryAfter);
+    const retryAfterMs = Number.isFinite(seconds) ? Math.max(0, seconds * 1000)
+      : Number.isFinite(retryAt) ? Math.max(0, retryAt - Date.now()) : undefined;
 
     if (!response.ok) {
       return {
         success: false,
         message: response.status >= 500 ? defaultRequestErrorMessage : parsed?.message ?? defaultRequestErrorMessage,
         code: parsed?.code,
-        data: parsed?.data
+        data: parsed?.data,
+        httpStatus: response.status,
+        retryAfterMs
       };
     }
 
-    return parsed ?? {
+    return { ...(parsed ?? {
       success: false,
       message: defaultRequestErrorMessage
-    };
+    }), httpStatus: response.status, retryAfterMs };
+    } catch {
+      return { success: false, message: defaultRequestErrorMessage, httpStatus: 0 };
+    } finally {
+      globalThis.clearTimeout(timeout);
+    }
   };
 
   return {

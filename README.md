@@ -20,6 +20,8 @@ npm install @brightertools/auth-react
 
 ## Documentation
 
+- [Cross-application auth handoff](./docs/integration-guide.md#cross-application-handoff-8-october-2026): Auth 1.1.1 / auth-react 2.0.1 adoption, host requirements and outstanding checks
+
 - [usage.md](./usage.md) for consuming application guidance
 - [publishing.md](./publishing.md) for maintainer release steps
 - [RELEASE_NOTES.md](./RELEASE_NOTES.md) for release history

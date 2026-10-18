@@ -1,5 +1,102 @@
 # Integration Guide
 
+## Cross-application handoff: 8 October 2026
+
+### Published packages
+
+Consume NuGet `BrighterTools.Auth 1.1.1` and npm
+`@brightertools/auth-react 2.0.1` from the public registries; update host lockfiles.
+Release commit: `e63f6d0504eb5c8d622ec63d78d770a8e7d8e28e`;
+trusted-publishing run: `37778794376`. The original checkout contains unrelated
+Microsoft-validator/account-panel changes which were excluded from this release.
+Do not treat that working tree as the published package or introduce local references.
+
+### What changed
+
+- Transient refresh network/timeout/429/5xx and unclassified failures retain the
+  refresh session instead of immediately logging out. Automatic retries are bounded
+  (1, 5, 15, 30, 60 seconds), honor Retry-After, and can recover on online/focus.
+- Access-token expiry still clears authenticated access. Stored session data alone
+  is not proof of authentication; route guards must use `isAuthenticated`.
+- Valid background refresh no longer unmounts forms. Stale responses cannot undo
+  logout or replace a newer session; concurrent refreshes are coalesced.
+- Web Locks serialize same-origin tab refreshes where supported. Tabs in the same
+  app need the same storageKey; unrelated apps should keep storage isolated.
+  Browsers without Web Locks have no cross-tab serialization guarantee.
+- The backend emits stable `invalid_refresh_token` failures. Invalid/revoked
+  sessions still sign out. No lifetime, rotation, replay-protection or schema change.
+
+### Host actions required
+
+1. Deploy the backend before the frontend. Preserve `invalid_refresh_token`,
+   HTTP status and Retry-After through custom API envelopes/adapters.
+2. Audit interceptors and auth wrappers: do not independently clear credentials
+   or call logout for transient refresh failures. Do not add unbounded retries.
+   Retain explicit invalid-session handling and enforce access-token expiry.
+3. Ensure login, refresh, tenant switching, invitation acceptance and compatibility
+   handoffs update the same refresh-cookie contract. Logout must delete all supported
+   cookies with matching options. Preserve HttpOnly/Secure and the host's CSRF and
+   SameSite design. A `__Host-` cookie requires Secure, Path=/ and no Domain.
+4. Failed tenant switching must retain the existing session. Test replacement and
+   logout while refresh is in flight. Adapt host routes/cookies/roles; do not copy
+   Adfast-specific identifiers or tenant rules.
+5. Use published packages, run host backend/client tests and production builds, and
+   deploy backend first. This refresh patch requires no migration or new settings.
+
+A response lost after server-side token rotation may still require sign-in. This
+release deliberately does not weaken replay protection to mask that case.
+
+### Notification contacts: earlier rollout prerequisites
+
+For apps upgrading from before Auth 1.1.0 / auth-react 2.0.0, also implement
+authenticated contact-email/select and contact-email/remove workflows, AddOnly
+verification, ownership/expiry/single-use checks and default-contact removal
+protection. Preserve notification selections through login, linking, profile and
+onboarding saves. Accept verified Apple relay addresses; activation or a Microsoft
+email claim alone is not proof of ownership.
+
+Login identities, notification contacts, billing and marketing preferences remain
+independent. Authentication challenges, password resets and invitations retain their
+intended recipients. Host persistence/recipient rules and any migrations remain
+host-owned; do not copy Adfast's IsContactRemoved migration or company model blindly.
+React 2.0.x's Router 7 and custom API-client compatibility requirements from the
+1.1.0/2.0.0 release still apply.
+
+### Verification evidence and checks for other apps
+
+Release CI passed 28 backend and 63 React tests. Adfast consumption passed 33
+focused backend tests (one opt-in SQL test skipped), 35 client tests and builds.
+These are previous release results, not evidence of another host's live validation.
+
+Before rollout, test password/external login, refresh/logout, expiry during outage,
+429/Retry-After, offline recovery, stale responses, multiple tabs, tenant switching,
+invitations and the actual host cookie/envelope pipeline. Verify enabled contact
+workflows and recipient routing. No live provider/email test or production deployment
+was performed in this release. Apple relay sender registration and the host's
+email-provider domain/DKIM plus real relay delivery remain separately approved checks.
+
+### Known issues and follow-up
+
+- IIS/TLS/network resets are independent of this patch. Adfast reported a missing
+  SSL selection on one of two servers; inspect every node's bindings/certificates.
+- Google /gsi/button 403 is a provider response, not an Adfast API authorization
+  error. Check the exact OAuth client origin and response/GSI_LOGGER evidence.
+  Do not record session cookies or tokens in diagnostics.
+- A separate local fake-DOM reproduction found changing callback identities can
+  rerun GoogleCredentialButton's effect and recreate its iframe during parent
+  re-renders. This may explain cancelled iframe requests, not the cause of a 403.
+  Stable-callback/effect repair and regression coverage are follow-up work:
+  **not included in auth-react 2.0.1**.
+- Adfast's Xero contact/invoice changes are app-specific and are not auth-library changes.
+
+Adfast references (examples, not portable implementations):
+`Web/Web.Server/Infrastructure/AuthRefreshCookies.cs`,
+`Web/Web.Server/Controllers/V1/AuthController.cs`,
+`Web/Web.Server/Controllers/V1/AuthenticationController.cs`,
+`Web/web.client/src/contexts/auth.tsx` and
+`ai/auth-notification-email-handoff.md`.
+
+
 ## Goal
 
 Integrate `BrighterTools.Auth` into another application while:

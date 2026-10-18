@@ -14,6 +14,23 @@ namespace BrighterTools.Auth.Tests;
 public sealed class DefaultAuthOrchestratorTests
 {
     [Fact]
+    public async Task ExistingProviderLoginRefreshesEvidenceWithoutRelinking()
+    {
+        var harness = TestHarness.Create();
+        await harness.Orchestrator.LoginWithExternalProviderAsync(new ExternalLoginRequest { Provider = AuthProviderType.Google, Credential = "valid", TenantId = "tenant-a" });
+        Assert.Equal(1, harness.ExternalLoginStore.RefreshCount);
+        Assert.Equal(0, harness.ExternalLoginStore.LinkCount);
+    }
+
+    [Fact]
+    public async Task ProviderDeniedByHostPolicyIsNotRefreshed()
+    {
+        var harness = TestHarness.Create(providerPolicyAllowed: false);
+        await Assert.ThrowsAnyAsync<Exception>(() => harness.Orchestrator.LoginWithExternalProviderAsync(new ExternalLoginRequest { Provider = AuthProviderType.Google, Credential = "valid", TenantId = "tenant-a" }));
+        Assert.Equal(0, harness.ExternalLoginStore.RefreshCount);
+    }
+
+    [Fact]
     public async Task LoginWithPassword_IssuesSessionAndRefreshToken()
     {
         var harness = TestHarness.Create();
@@ -115,6 +132,24 @@ public sealed class DefaultAuthOrchestratorTests
         Assert.Equal("issued-access-token", response.Session!.AccessToken);
         Assert.Equal("refresh-1", response.Session.RefreshToken);
         Assert.Equal("tenant-a", response.Session.CurrentTenant?.TenantId);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("expired")]
+    [InlineData("revoked")]
+    public async Task Refresh_InvalidTokensHaveStableFailureCode(string state)
+    {
+        var harness = TestHarness.Create();
+        if (state != "missing") harness.RefreshTokenStore.StoredToken = new AuthRefreshToken
+        {
+            Token = "refresh-0", UserId = "user-1", Provider = AuthProviderType.Password,
+            ExpiresAtUtc = state == "expired" ? DateTimeOffset.UnixEpoch : DateTimeOffset.UtcNow.AddDays(1),
+            IsRevoked = state == "revoked"
+        };
+        var error = await Assert.ThrowsAsync<BrighterTools.Auth.Exceptions.AuthFailureException>(() =>
+            harness.Orchestrator.RefreshAsync(new RefreshTokenRequest { RefreshToken = "refresh-0" }));
+        Assert.Equal("invalid_refresh_token", error.Code);
     }
 
     [Fact]
@@ -302,6 +337,7 @@ public sealed class DefaultAuthOrchestratorTests
         public required FakeRegistrationWorkflowService RegistrationWorkflowService { get; init; }
         public required FakeEmailWorkflowService EmailWorkflowService { get; init; }
         public required FakeRefreshTokenStore RefreshTokenStore { get; init; }
+        public required FakeExternalLoginStore ExternalLoginStore { get; init; }
 
         public static TestHarness Create(
             bool passwordShouldSucceed = true,
@@ -321,6 +357,7 @@ public sealed class DefaultAuthOrchestratorTests
             var registrationWorkflow = new FakeRegistrationWorkflowService();
             var emailWorkflow = new FakeEmailWorkflowService();
             var refreshTokenStore = new FakeRefreshTokenStore();
+            var externalLoginStore = new FakeExternalLoginStore();
             var authOptions = Microsoft.Extensions.Options.Options.Create(new BrighterToolsAuthOptions
             {
                 Providers = new ProviderOptions
@@ -355,7 +392,7 @@ public sealed class DefaultAuthOrchestratorTests
                 new FakeLegacyPasswordVerifier(legacyShouldSucceed),
                 new DefaultPasswordRehashPolicy(),
                 [new FakeExternalValidator()],
-                new FakeExternalLoginStore(),
+                externalLoginStore,
                 new FakeExternalUserProvisioningPolicy(true),
                 new DefaultExternalSignupPolicy(authOptions),
                 new FakeJwtPayloadBuilder(),
@@ -384,7 +421,8 @@ public sealed class DefaultAuthOrchestratorTests
                 UserProvisioningService = userProvisioning,
                 RegistrationWorkflowService = registrationWorkflow,
                 EmailWorkflowService = emailWorkflow,
-                RefreshTokenStore = refreshTokenStore
+                RefreshTokenStore = refreshTokenStore,
+                ExternalLoginStore = externalLoginStore
             };
         }
     }
@@ -510,6 +548,10 @@ public sealed class DefaultAuthOrchestratorTests
 
     private sealed class FakeExternalLoginStore : IExternalLoginStore
     {
+        public int RefreshCount { get; private set; }
+        public int LinkCount { get; private set; }
+        public Task RefreshAsync(string userId, ExternalIdentity identity, CancellationToken cancellationToken = default)
+        { RefreshCount++; return Task.CompletedTask; }
         private readonly List<ExternalLogin> _linked = [];
 
         public Task<IReadOnlyList<ExternalLogin>> GetLinkedLoginsAsync(string userId, CancellationToken cancellationToken = default)
@@ -517,6 +559,7 @@ public sealed class DefaultAuthOrchestratorTests
 
         public Task LinkAsync(string userId, ExternalIdentity identity, CancellationToken cancellationToken = default)
         {
+            LinkCount++;
             _linked.Add(new ExternalLogin { Provider = identity.Provider, ProviderSubject = identity.ProviderSubject, Email = identity.Email, LinkedAtUtc = DateTimeOffset.UtcNow });
             return Task.CompletedTask;
         }

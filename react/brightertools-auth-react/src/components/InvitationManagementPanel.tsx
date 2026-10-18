@@ -27,6 +27,8 @@ interface FeedbackState {
 
 export interface InvitationManagementPanelProps {
   className?: string;
+  showImport?: boolean;
+  showMessage?: boolean;
   adapter: Pick<
     InvitationServiceAdapter,
     | "getInvitationList"
@@ -92,6 +94,8 @@ const getStatusBadge = (status: InvitationListItem["status"]) => {
 
 export function InvitationManagementPanel({
   className,
+  showImport = true,
+  showMessage = true,
   adapter,
   textOverrides,
   roleOptions = [],
@@ -347,6 +351,10 @@ export function InvitationManagementPanel({
         return managementText.declinedStatusLabel;
       case "expired":
         return managementText.expiredStatusLabel;
+      case "revoked":
+        return managementText.revokedStatusLabel;
+      case "cancelled":
+        return managementText.cancelledStatusLabel;
       default:
         return managementText.unknownStatusLabel;
     }
@@ -363,9 +371,9 @@ export function InvitationManagementPanel({
           <button type="button" className={`btn ${editMode === "invite" ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setEditMode("invite")}>
             {managementText.inviteTabLabel}
           </button>
-          <button type="button" className={`btn ${editMode === "import" ? "btn-primary" : "btn-outline-primary"}`} onClick={() => { resetImportState(); setEditMode("import"); }}>
+          {showImport && <button type="button" className={`btn ${editMode === "import" ? "btn-primary" : "btn-outline-primary"}`} onClick={() => { resetImportState(); setEditMode("import"); }}>
             {managementText.importTabLabel}
-          </button>
+          </button>}
         </div>
       </div>
       <div className={classNames?.body ?? "card-body"}>
@@ -398,10 +406,10 @@ export function InvitationManagementPanel({
                   </select>
                 </div>
               )}
-              <div className="col-12">
+              {showMessage && <div className="col-12">
                 <label className="form-label" htmlFor={inviteMessageId}>{managementText.optionalMessageLabel}</label>
                 <textarea id={inviteMessageId} className="form-control" rows={3} value={message} onChange={event => setMessage(event.target.value)} />
-              </div>
+              </div>}
               {showCanChangeEmailAddress && (
                 <div className="col-12">
                   <div className="form-check">

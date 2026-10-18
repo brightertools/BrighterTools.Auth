@@ -162,6 +162,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
 
         var identity = await validator.ValidateAsync(request.Credential, cancellationToken);
         var user = await _userLookupService.FindByExternalLoginAsync(identity.Provider, identity.ProviderSubject, cancellationToken);
+        var existingLink = user is not null;
         if (user is null)
         {
             if (!request.AllowProvisioning || !_options.ExternalSignup.AllowProvisioningFromLogin)
@@ -206,6 +207,8 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
 
         EnsureUserCanSignIn(user);
         await EnsureProviderAllowedAsync(user, request.Provider, request.TenantId, cancellationToken);
+        if (existingLink)
+            await _externalLoginStore.RefreshAsync(user.Id, identity, cancellationToken);
         return await CreateAuthResponseAsync(user, request.Provider, request.TenantId, false, cancellationToken);
     }
 
@@ -305,7 +308,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default)
     {
         var refreshToken = await _refreshTokenStore.FindAsync(request.RefreshToken, cancellationToken)
-            ?? throw new InvalidOperationException("Refresh token is invalid.");
+            ?? throw new AuthFailureException("invalid_refresh_token", "Refresh token is invalid.");
 
         if (refreshToken.IsRevoked)
         {
@@ -314,12 +317,12 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
                 await _refreshTokenStore.RevokeAsync(request.RefreshToken, "revoked_token_reused", cancellationToken);
             }
 
-            throw new InvalidOperationException("Refresh token is invalid.");
+            throw new AuthFailureException("invalid_refresh_token", "Refresh token is invalid.");
         }
 
         if (refreshToken.ExpiresAtUtc <= _clock.UtcNow)
         {
-            throw new InvalidOperationException("Refresh token is invalid.");
+            throw new AuthFailureException("invalid_refresh_token", "Refresh token is invalid.");
         }
 
         var user = await RequireUserAsync(refreshToken.UserId, cancellationToken);
@@ -844,7 +847,6 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         throw new InvalidOperationException(result.Reason ?? "Provider is not allowed.");
     }
 }
-
 
 
 
