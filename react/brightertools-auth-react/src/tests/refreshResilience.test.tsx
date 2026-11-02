@@ -1,3 +1,4 @@
+import { createSessionCoordinator } from "../services/sessionCoordinator";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, type AuthContextValue } from "../context/AuthContext";
@@ -21,6 +22,21 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-08T12:
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("refresh resilience", () => {
+  it("keeps scheduled renewal after a failed fresh authentication", async () => {
+    let stored: AuthSession | null = session(300);
+    const replacement = session(900);
+    const refresh = vi.fn().mockResolvedValue({ success: true, data: { session: replacement } });
+    const coordinator = createSessionCoordinator({ refresh } as unknown as AuthApiClient,
+      { get: () => stored, set: value => { stored = value; } });
+    coordinator.start();
+    try {
+      await expect(coordinator.authenticate(async () => { throw new Error("Invalid credentials"); })).rejects.toThrow("Invalid credentials");
+      expect(stored).not.toBeNull();
+      await vi.advanceTimersByTimeAsync(210_000);
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(stored).toEqual(replacement);
+    } finally { coordinator.stop(); }
+  });
   it.each([0, 408, 429, 500, 502, 503, 504])("retains a valid session after HTTP %s and recovers", async httpStatus => {
     const replacement = session(900);
     const setup = mount(vi.fn().mockResolvedValueOnce({ success: false, httpStatus }).mockResolvedValue({ success: true, data: { session: replacement } }));

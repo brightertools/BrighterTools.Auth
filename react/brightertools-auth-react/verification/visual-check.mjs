@@ -1,0 +1,37 @@
+import { createRequire } from "node:module";
+import path from "node:path";
+import fs from "node:fs";
+const root=process.env.AUTH_REACT_CONSUMER_ROOT;
+if(!root) throw new Error("Set AUTH_REACT_CONSUMER_ROOT to the installed browser-test consumer.");
+const require=createRequire(path.join(root,"package.json"));
+const {chromium}=require("@playwright/test");
+const output=path.resolve("node_modules/.cache/admin-visual");fs.mkdirSync(output,{recursive:true});
+const browser=await chromium.launch({headless:true,channel:process.env.AUTH_BROWSER_CHANNEL || "chrome"});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1100}});
+ const errors=[]; page.on("pageerror",error=>errors.push(error.message));
+ await page.goto("http://127.0.0.1:5189/");await page.getByText("Alex Example").waitFor();
+ await page.screenshot({path:path.join(output,"desktop-light.png"),fullPage:true});
+ await page.getByRole("button",{name:"Toggle theme"}).click();
+ await page.screenshot({path:path.join(output,"desktop-dark.png"),fullPage:true});
+ await page.getByRole("button",{name:"Edit",exact:true}).click();await page.getByLabel("Role",{exact:true}).waitFor();
+ await page.screenshot({path:path.join(output,"member-edit-dark.png"),fullPage:true});
+ await page.getByRole("button",{name:"Cancel",exact:true}).click();
+ await page.getByRole("button",{name:"Resend",exact:true}).click();await page.getByLabel("Optional Message").waitFor();
+ if(await page.getByLabel("Optional Message").inputValue()!=="Welcome to the workspace")throw new Error("Resend did not load current message");
+ await page.getByRole("button",{name:"Save and resend"}).click();await page.getByRole("alertdialog").waitFor();
+ await page.getByRole("alertdialog").getByRole("button",{name:"Cancel",exact:true}).click();
+ await page.getByRole("button",{name:"Cancel",exact:true}).click();
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:path.join(output,"mobile-dark.png"),fullPage:true});
+ if(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth))throw new Error("Mobile page-level overflow");
+ await page.getByRole("button",{name:"Toggle theme"}).click();
+ await page.getByRole("button",{name:"Invite User",exact:true}).click();
+ await page.screenshot({path:path.join(output,"mobile-invite-light.png"),fullPage:true});
+ if(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth))throw new Error("Mobile invitation form overflow");
+ await page.getByRole("button",{name:"Cancel",exact:true}).click();
+ await page.getByRole("button",{name:"Import",exact:true}).click();
+ await page.screenshot({path:path.join(output,"mobile-import-light.png"),fullPage:true});
+ if(errors.length)throw new Error(errors.join("\n"));
+ console.log("Browser checks passed: desktop light/dark, member editor, resend confirmation, mobile list/invite/import; no runtime errors or page-level mobile overflow. Screenshots: "+output);
+} finally { await browser.close(); }

@@ -106,6 +106,8 @@ export interface InvitationListItem {
   canRemove?: boolean;
   canViewDetails?: boolean;
   canCopyLink?: boolean;
+  canArchive?: boolean;
+  linkUnavailableMessage?: string;
 }
 
 export interface InvitationListResult {
@@ -147,7 +149,24 @@ export interface InvitationImportResult {
   invalidRows: InvitationImportInvalidRow[];
 }
 
+/** Preview is side-effect free; commit is the only two-stage operation that may send. */
+export interface InvitationImportPreview extends InvitationImportResult {
+  previewId?: string;
+}
+export interface InvitationLinkResult { url: string; }
+export type InvitationManagementView =
+  | { mode: "list" | "invite" | "import" }
+  | { mode: "resend"; invitationId: string };
+
 export interface InvitationServiceAdapter {
+  editAndResendInvitation?(id: string, request: InvitationInviteUserRequest): Promise<InvitationOperationResult<void>>;
+  getInvitationLink?(id: string): Promise<InvitationOperationResult<InvitationLinkResult>>;
+  archiveInvitation?(id: string): Promise<InvitationOperationResult<void>>;
+  /** Host owns the filename, media type and download mechanism. */
+  downloadInvitationTemplate?(): Promise<void>;
+  previewInvitationImport?(file: File, message?: string): Promise<InvitationOperationResult<InvitationImportPreview>>;
+  /** File/message are the exact snapshot previewed; adapters may delegate legacy combined import here. */
+  commitInvitationImport?(preview: InvitationImportPreview, file: File, message?: string): Promise<InvitationOperationResult<InvitationImportResult>>;
   getInvitationDetails(key: string): Promise<InvitationOperationResult<InvitationDetails>>;
   acceptInvitation(request: InvitationAcceptRequest): Promise<InvitationOperationResult<InvitationAcceptResponse>>;
   connectInvitation(request: InvitationConnectRequest): Promise<InvitationOperationResult<void>>;

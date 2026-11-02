@@ -44,17 +44,22 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./session": { "types": "./dist/session.d.ts", "default": "./dist/session.js" },
     "./recaptcha": {
       "types": "./dist/recaptcha.d.ts",
       "default": "./dist/recaptcha.js"
-    }
+    },
+    "./styles/invitations.css": "./styles/invitations.css",
+    "./styles/auth.css": "./styles/auth.css"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "styles",
+    "INVITATION-PRESENTATION.md",
+    "USER-ADMINISTRATION.md"
   ],
   "publishConfig": {
     "access": "public"
   }
 }
-

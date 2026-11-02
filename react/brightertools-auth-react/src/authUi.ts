@@ -289,6 +289,17 @@ export interface InvitationAcceptanceTextOverrides {
 }
 
 export interface InvitationManagementTextOverrides {
+  flexibleEmailLabel?: string;
+  flexibleEmailDescription?: string;
+  pageSizeLabel?: string;
+  editAndResendHeading?: string;
+  editAndResendLabel?: string;
+  resendConfirmationMessage?: string;
+  revokeConfirmationMessage?: string;
+  archiveConfirmationMessage?: string;
+  confirmLabel?: string;
+  archiveLabel?: string;
+  showLinkLabel?: string;
   title?: string;
   listTabLabel?: string;
   inviteTabLabel?: string;
@@ -364,6 +375,17 @@ export interface InvitationManagementTextOverrides {
 }
 
 export interface InvitationImportTextOverrides {
+  allowAnyEmailColumnLabel?: string;
+  validationErrorsHeading?: string;
+  validationErrorLabel?: string;
+  adapterConfigurationMessage?: string;
+  downloadTemplateLabel?: string;
+  downloadFailedMessage?: string;
+  previewImportLabel?: string;
+  commitImportLabel?: string;
+  previewReadyMessage?: string;
+  previewContractErrorMessage?: string;
+  jobStatusLabel?: string;
   title?: string;
   instructionsMessage?: string;
   sharedMessageLabel?: string;
@@ -678,6 +700,17 @@ export const defaultInvitationAcceptanceText: Required<InvitationAcceptanceTextO
 };
 
 export const defaultInvitationManagementText: Required<InvitationManagementTextOverrides> = {
+  flexibleEmailLabel: "Alternate email",
+  flexibleEmailDescription: "A different email address is allowed or was used to accept this invitation.",
+  pageSizeLabel: "Invitations per page",
+  editAndResendHeading: "Edit and resend invitation",
+  editAndResendLabel: "Save and resend",
+  resendConfirmationMessage: "Resend this invitation with these details? The previous link will be replaced.",
+  revokeConfirmationMessage: "Revoke this invitation? It will no longer be usable.",
+  archiveConfirmationMessage: "Remove this invitation history from the list? This does not remove the associated member.",
+  confirmLabel: "Confirm",
+  archiveLabel: "Archive",
+  showLinkLabel: "Show link",
   title: "User Invitations",
   listTabLabel: "List",
   inviteTabLabel: "Invite User",
@@ -753,6 +786,17 @@ export const defaultInvitationManagementText: Required<InvitationManagementTextO
 };
 
 export const defaultInvitationImportText: Required<InvitationImportTextOverrides> = {
+  allowAnyEmailColumnLabel: "Allow Any Email",
+  validationErrorsHeading: "Validation errors",
+  validationErrorLabel: "Row {row}: {error}",
+  adapterConfigurationMessage: "Import requires both preview and commit capabilities.",
+  downloadTemplateLabel: "Download template",
+  downloadFailedMessage: "Unable to download the invitation template.",
+  previewImportLabel: "Preview import",
+  commitImportLabel: "Confirm and send invitations",
+  previewReadyMessage: "Preview complete. Confirm to send these invitations.",
+  previewContractErrorMessage: "The preview adapter returned a queued import. No further submission will be made.",
+  jobStatusLabel: "Import queued: {jobId}",
   title: "Import Users",
   instructionsMessage: "Required columns: First Name, LastName, EmailAddress, UserRole, Allow Any Email.",
   sharedMessageLabel: "Message to all invited users (optional)",

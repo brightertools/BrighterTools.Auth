@@ -1,0 +1,5 @@
+/* The shared field owns its accessible reveal button. Theme remains host-owned. */
+.bt-auth-password-input::-ms-reveal,
+.bt-auth-password-input::-ms-clear {
+  display: none;
+}

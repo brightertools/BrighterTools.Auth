@@ -1,10 +1,13 @@
-﻿namespace BrighterTools.Auth.Models;
+namespace BrighterTools.Auth.Models;
 
 /// <summary>
 /// Represents the refresh Token Issue Request.
 /// </summary>
 public sealed class RefreshTokenIssueRequest
 {
+    /// <summary>Gets non-secret session correlation for hosts using hash-only refresh persistence.</summary>
+    public AuthSessionMetadata? Session { get; init; }
+
     /// <summary>
     /// Gets or sets the user ID.
     /// </summary>

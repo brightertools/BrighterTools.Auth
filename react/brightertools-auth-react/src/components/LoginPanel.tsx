@@ -43,6 +43,8 @@ export interface LoginPanelProps {
   microsoftRedirectPath?: string;
   appleRedirectPath?: string;
   appleRedirectOrigin?: string;
+  /** Disable when the host has no passwordless endpoints. Defaults to true. */
+  passwordlessEnabled?: boolean;
   passwordlessToken?: string | null;
   passwordlessReturnUrl?: string;
   passwordlessCodeReturnUrl?: string;
@@ -68,6 +70,7 @@ export function LoginPanel({
   microsoftRedirectPath = "/login",
   appleRedirectPath = "/login",
   appleRedirectOrigin,
+  passwordlessEnabled = true,
   passwordlessToken,
   passwordlessReturnUrl = "/dashboard",
   passwordlessCodeReturnUrl = "/dashboard",
@@ -108,6 +111,13 @@ export function LoginPanel({
   const loginIdentifierId = useId();
 
   useEffect(() => {
+    if (!passwordlessEnabled) {
+      setShowPasswordlessEmailForm(false);
+      setShowEmailForm(resolvedLoginEmailUi.emailDisplayMode === "inline");
+    }
+  }, [passwordlessEnabled, resolvedLoginEmailUi.emailDisplayMode]);
+
+  useEffect(() => {
     if (initialLoginIdentifier !== undefined) {
       setLoginIdentifier(initialLoginIdentifier);
     }
@@ -135,7 +145,7 @@ export function LoginPanel({
 
   useEffect(() => {
     let cancelled = false;
-    const token = passwordlessToken?.trim();
+    const token = passwordlessEnabled ? passwordlessToken?.trim() : undefined;
     if (!token) return;
 
     const completeTokenLogin = async () => {
@@ -160,7 +170,7 @@ export function LoginPanel({
     return () => {
       cancelled = true;
     };
-  }, [loginText, onAuthenticated, passwordlessLogin, passwordlessReturnUrl, passwordlessToken, setError, tenantId]);
+  }, [loginText, onAuthenticated, passwordlessLogin, passwordlessReturnUrl, passwordlessEnabled, passwordlessToken, setError, tenantId]);
 
   const submitPasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -307,7 +317,7 @@ export function LoginPanel({
           {isSubmitting ? passwordLoginText.submittingLabel ?? loginText.signingInLabel : passwordLoginText.submitLabel ?? loginText.signInLabel}
         </button>
       </form>
-      <div className="border-top mt-4 pt-4">
+      {passwordlessEnabled && <div className="border-top mt-4 pt-4">
         <button
           type="button"
           className="btn btn-link p-0 small"
@@ -319,7 +329,7 @@ export function LoginPanel({
         >
           {loginText.passwordlessModeLabel}
         </button>
-      </div>
+      </div>}
     </div>
   );
 
@@ -384,7 +394,7 @@ export function LoginPanel({
         </div>
       )}
 
-      {showPasswordlessEmailForm && (
+      {passwordlessEnabled && showPasswordlessEmailForm && (
         <>
           <button
             type="button"
