@@ -1,5 +1,20 @@
 # Workspace invitation presentation
 
+## Invitation acceptance account choices
+
+`InvitationAcceptancePanel` accepts `allowExistingAccountLogin` (default `true`).
+Set it to `false` for a host whose signed-out invitees should only create an account.
+This hides the existing-account choice, the account-choice description and the
+existing-account link on the creation form. Already signed-in account handling
+and server-side authorization are unchanged. Existing integrations need no changes.
+
+Hosts can independently customize `textOverrides.invitationAcceptance` keys
+`createNewAccountInsteadLabel`, `createAccountHeading` and `acceptInvitationLabel`.
+Cherry Lodge opts out and uses "Create Account and accept invitation". This is a
+local source change; rebuild the React package before consuming the new prop.
+
+## Invitation management
+
 The shared InvitationManagementPanel owns the MyRipple-inspired list/form presentation.
 Hosts provide API adapters, localized labels, allowed roles and policy descriptions.
 No tenant lifecycle, identifiers, quotas, branding or MyRipple fund rules are copied.

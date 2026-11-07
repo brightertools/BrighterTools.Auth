@@ -27,6 +27,8 @@ export interface InvitationAcceptancePanelProps<TUser = unknown> {
   textOverrides?: AuthUiTextOverrides;
   currentUser?: TUser | null;
   canCurrentUserAccept?: boolean;
+  /** Show the signed-out existing-account login flow. Defaults to true. */
+  allowExistingAccountLogin?: boolean;
   allowExistingLoginIdentifierEdit?: boolean;
   allowCreateAccountEmailChange?: boolean;
   getCurrentUserDisplayName?: (user: TUser) => string;
@@ -77,6 +79,7 @@ export function InvitationAcceptancePanel<TUser = unknown>({
   textOverrides,
   currentUser,
   canCurrentUserAccept,
+  allowExistingAccountLogin = true,
   allowExistingLoginIdentifierEdit = false,
   allowCreateAccountEmailChange = true,
   getCurrentUserDisplayName,
@@ -575,22 +578,22 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                   )}
 
                   {showPendingInvitationActions && !currentUser && (
-                    <div className={showAccountChoice ? classNames?.currentAccountCard ?? "card" : showExistingAccountLogin ? classNames?.existingAccountCard ?? "card" : classNames?.createAccountCard ?? "card"}>
+                    <div className={showAccountChoice ? classNames?.currentAccountCard ?? "card" : allowExistingAccountLogin && showExistingAccountLogin ? classNames?.existingAccountCard ?? "card" : classNames?.createAccountCard ?? "card"}>
                       <div className="card-body">
                         {showAccountChoice ? (
                           <>
                             <h5>{text.accountChoiceHeading}</h5>
-                            <p className="mb-3">{text.accountChoiceDescription}</p>
+                            {allowExistingAccountLogin && <p className="mb-3">{text.accountChoiceDescription}</p>}
                             <div className="d-flex flex-wrap gap-2">
-                              <button type="button" className="btn btn-primary" disabled={isSubmitting} onClick={switchToExistingAccountLogin}>
+                              {allowExistingAccountLogin && <button type="button" className="btn btn-primary" disabled={isSubmitting} onClick={switchToExistingAccountLogin}>
                                 {text.existingAccountHeading}
-                              </button>
-                              <button type="button" className="btn btn-outline-secondary" disabled={isSubmitting} onClick={switchToCreateAccount}>
+                              </button>}
+                              <button type="button" className={allowExistingAccountLogin ? "btn btn-outline-secondary" : "btn btn-primary"} disabled={isSubmitting} onClick={switchToCreateAccount}>
                                 {text.createNewAccountInsteadLabel}
                               </button>
                             </div>
                           </>
-                        ) : showExistingAccountLogin ? (
+                        ) : allowExistingAccountLogin && showExistingAccountLogin ? (
                           <>
                             <h5>{text.existingAccountHeading}</h5>
                             {!details.canChangeEmailAddress && (
@@ -684,9 +687,9 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                               </div>
                             </div>
                             <div className="mt-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                              <button type="button" className="btn btn-link px-0" disabled={isSubmitting} onClick={switchToExistingAccountLogin}>
+                              {allowExistingAccountLogin && <button type="button" className="btn btn-link px-0" disabled={isSubmitting} onClick={switchToExistingAccountLogin}>
                                 {text.alreadyHaveAccountLabel}
-                              </button>
+                              </button>}
                               <button type="button" className="btn btn-primary" disabled={isSubmitting} onClick={() => void acceptInvitation()}>
                                 {isSubmitting ? text.acceptingInvitationLabel : text.acceptInvitationLabel}
                               </button>

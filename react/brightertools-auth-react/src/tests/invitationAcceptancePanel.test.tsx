@@ -4,6 +4,44 @@ import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePan
 import type { InvitationServiceAdapter } from "../types/invitations";
 
 describe("InvitationAcceptancePanel", () => {
+  it.each([undefined, true])("preserves both account choices when allowExistingAccountLogin is %s", async allowExistingAccountLogin => {
+    const adapter = {
+      getInvitationDetails: vi.fn().mockResolvedValue({ success: true, data: { email: "invitee@example.com", status: "pending" } }),
+      acceptInvitation: vi.fn(), connectInvitation: vi.fn(), declineInvitation: vi.fn()
+    };
+    render(<InvitationAcceptancePanel invitationKey="invite-key" adapter={adapter} allowExistingAccountLogin={allowExistingAccountLogin} />);
+    await screen.findByText("Choose whether to use an existing account or create a new account.");
+    expect(screen.getByRole("button", { name: "Accept invitation with existing account" })).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Create a new account and accept invitation" }));
+    expect(screen.getByRole("button", { name: "Use an existing account" })).not.toBeNull();
+  });
+
+  it("can hide existing-account choices while retaining new-account acceptance", async () => {
+    const adapter = {
+      getInvitationDetails: vi.fn().mockResolvedValue({ success: true, data: {
+        email: "invitee@example.com", firstName: "Invited", lastName: "User", canChangeEmailAddress: false, status: "pending"
+      } }),
+      acceptInvitation: vi.fn().mockResolvedValue({ success: true, data: { activated: true } }),
+      connectInvitation: vi.fn(), declineInvitation: vi.fn()
+    };
+    const onCompleted = vi.fn();
+    render(<InvitationAcceptancePanel invitationKey="invite-key" adapter={adapter} allowExistingAccountLogin={false}
+      onCompleted={onCompleted} textOverrides={{ invitationAcceptance: {
+        createNewAccountInsteadLabel: "Create Account and accept invitation", acceptInvitationLabel: "Create Account and accept invitation"
+      } }} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Create Account and accept invitation" }));
+    expect(screen.queryByText("Choose whether to use an existing account or create a new account.")).toBeNull();
+    expect(screen.queryByRole("button", { name: /existing account/i })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Password1!" } });
+    fireEvent.change(screen.getByLabelText("Confirm Password"), { target: { value: "Password1!" } });
+    fireEvent.click(screen.getByLabelText(/I have read and accept the/i));
+    fireEvent.click(screen.getByLabelText(/I accept the/i));
+    fireEvent.click(screen.getByRole("button", { name: "Create Account and accept invitation" }));
+    await waitFor(() => expect(onCompleted).toHaveBeenCalledWith("accepted"));
+    expect(adapter.acceptInvitation).toHaveBeenCalledWith(expect.objectContaining({ userInvitationKey: "invite-key", email: "invitee@example.com" }));
+    expect(adapter.connectInvitation).not.toHaveBeenCalled();
+  });
+
   it("blocks accepting with the current account when the user already belongs to the invited tenant", async () => {
     const adapter: Pick<InvitationServiceAdapter, "getInvitationDetails" | "acceptInvitation" | "connectInvitation" | "declineInvitation"> = {
       getInvitationDetails: vi.fn().mockResolvedValue({
