@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { invitationHttpFailure } from '../invitationHttpFailure';
+import { invitationHttpFailure } from '../invitationHttpFailure.js';
 describe('invitation HTTP failure boundary', () => {
   it('preserves validation messages and conflict explanations', () => {
     expect(invitationHttpFailure({response:{status:409,data:{messages:['Invitation was accepted. Refresh the list.']}}},'Failed').messages).toEqual(['Invitation was accepted. Refresh the list.']);

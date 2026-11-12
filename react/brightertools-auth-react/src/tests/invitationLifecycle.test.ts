@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { invitationLifecycleActions } from "../invitationLifecycle";
-import type { InvitationListItem, InvitationStatus } from "../types/invitations";
+import { invitationLifecycleActions } from "../invitationLifecycle.js";
+import type { InvitationListItem, InvitationStatus } from "../types/invitations.js";
 const row = (status: InvitationStatus, expired = false): InvitationListItem => ({
   id: "opaque", firstName: "Test", lastName: "Invite", email: "test@example.test", status,
   expiryDate: expired ? "2020-01-01" : "2099-01-01", canResend: true, canCancel: true,

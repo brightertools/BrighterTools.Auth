@@ -1,7 +1,7 @@
-import { AuthProviderButton } from "./AuthProviderButton";
-import { GoogleCredentialButton } from "./GoogleCredentialButton";
-import { resolveAuthProviderUiConfigs, type AuthProviderUiConfig, type AuthUiTextOverrides, type GoogleButtonText } from "../authUi";
-import type { AuthProviderType } from "../types/auth";
+import { AuthProviderButton } from "./AuthProviderButton.js";
+import { GoogleCredentialButton } from "./GoogleCredentialButton.js";
+import { resolveAuthProviderUiConfigs, type AuthProviderUiConfig, type AuthUiTextOverrides, type GoogleButtonText } from "../authUi.js";
+import type { AuthProviderType } from "../types/auth.js";
 
 export interface ExternalAuthButtonListProps {
   providerUi?: AuthProviderUiConfig[];

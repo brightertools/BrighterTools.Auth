@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { AuthProviderType } from "./auth";
-import type { AuthProviderUiConfig, AuthUiTextOverrides, LoginEmailUiOptions } from "../authUi";
+import type { AuthProviderType } from "./auth.js";
+import type { AuthProviderUiConfig, AuthUiTextOverrides, LoginEmailUiOptions } from "../authUi.js";
 
 export type InvitationStatus = "pending" | "accepted" | "declined" | "expired" | "revoked" | "cancelled" | "unknown";
 

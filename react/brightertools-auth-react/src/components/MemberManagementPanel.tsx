@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { formatAuthText } from "../authUi";
-import type { InvitationOperationResult, InvitationRoleOption } from "../types/invitations";
-import { defaultMemberManagementText } from "../types/members";
-import type { MemberListItem, MemberManagementTextOverrides, MemberManagementView, MemberServiceAdapter } from "../types/members";
-import { AdministrationConfirmation } from "./AdministrationConfirmation";
+import { formatAuthText } from "../authUi.js";
+import type { InvitationOperationResult, InvitationRoleOption } from "../types/invitations.js";
+import { defaultMemberManagementText } from "../types/members.js";
+import type { MemberListItem, MemberManagementTextOverrides, MemberManagementView, MemberServiceAdapter } from "../types/members.js";
+import { AdministrationConfirmation } from "./AdministrationConfirmation.js";
 
 export type MemberManagementAction = "edit" | "remove" | "transferOwnership" | "save" | "cancel" | "protected" | "emailUnconfirmed" | "enabled" | "disabled";
 

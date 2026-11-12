@@ -30,8 +30,8 @@ import type {
   VerifyNotificationEmailChangeResponse,
   VerifySignupEmailVerificationCodeRequest,
   VerifySignupEmailVerificationCodeResponse
-} from "../types/api";
-import type { LinkedProvider } from "../types/auth";
+} from "../types/api.js";
+import type { LinkedProvider } from "../types/auth.js";
 
 export interface ApiEnvelope<T> {
   success: boolean;

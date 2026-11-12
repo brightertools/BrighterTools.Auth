@@ -1,5 +1,5 @@
-import { useAuth } from "./useAuth";
-import type { RefreshTokenRequest } from "../types/api";
+import { useAuth } from "./useAuth.js";
+import type { RefreshTokenRequest } from "../types/api.js";
 
 export const useRefreshToken = () => {
   const { api, setSession } = useAuth();

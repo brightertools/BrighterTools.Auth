@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { InvitationManagementPanel } from "../components/InvitationManagementPanel";
-import type { InvitationServiceAdapter } from "../types/invitations";
+import { InvitationManagementPanel } from "../components/InvitationManagementPanel.js";
+import type { InvitationServiceAdapter } from "../types/invitations.js";
 
 const clipboardWriteText = vi.fn();
 

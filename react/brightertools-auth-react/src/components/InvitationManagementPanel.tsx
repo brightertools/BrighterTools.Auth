@@ -1,5 +1,5 @@
-import { invitationHttpFailure } from "../invitationHttpFailure";
-import { invitationLifecycleActions } from "../invitationLifecycle";
+import { invitationHttpFailure } from "../invitationHttpFailure.js";
+import { invitationLifecycleActions } from "../invitationLifecycle.js";
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -8,7 +8,7 @@ import {
   formatAuthText,
   getAuthProviderLabel,
   type AuthUiTextOverrides
-} from "../authUi";
+} from "../authUi.js";
 import type {
   InvitationImportInvalidRow,
   InvitationImportPreview,
@@ -19,9 +19,9 @@ import type {
   InvitationOperationResult,
   InvitationRoleOption,
   InvitationServiceAdapter
-} from "../types/invitations";
+} from "../types/invitations.js";
 
-import { AdministrationConfirmation } from "./AdministrationConfirmation";
+import { AdministrationConfirmation } from "./AdministrationConfirmation.js";
 
 type EditMode = "list" | "invite" | "import" | "resend";
 type FeedbackTone = "danger" | "success" | "info" | "warning";

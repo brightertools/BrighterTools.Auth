@@ -1,5 +1,5 @@
-import { useAuth } from "./useAuth";
-import type { CompleteOnboardingRequest, TenantScopedRequest } from "../types/api";
+import { useAuth } from "./useAuth.js";
+import type { CompleteOnboardingRequest, TenantScopedRequest } from "../types/api.js";
 
 export const useOnboarding = () => {
   const { api } = useAuth();

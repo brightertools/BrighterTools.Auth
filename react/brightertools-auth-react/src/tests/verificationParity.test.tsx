@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { VerifyEmailLinkPanel } from "../components/VerifyEmailLinkPanel";
-import { LoginPanel } from "../components/LoginPanel";
+import { VerifyEmailLinkPanel } from "../components/VerifyEmailLinkPanel.js";
+import { LoginPanel } from "../components/LoginPanel.js";
 const api = vi.hoisted(() => ({ confirmEmailVerification: vi.fn(), confirmLoginEmailChange: vi.fn() }));
 const passwordless = vi.hoisted(() => ({ begin: vi.fn(), complete: vi.fn() }));
 vi.mock("../hooks/useAuth", () => ({ useAuth: () => ({ api }) }));

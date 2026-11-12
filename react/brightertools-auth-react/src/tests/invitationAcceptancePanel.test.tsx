@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePanel";
-import type { InvitationServiceAdapter } from "../types/invitations";
+import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePanel.js";
+import type { InvitationServiceAdapter } from "../types/invitations.js";
 
 describe("InvitationAcceptancePanel", () => {
   it.each([undefined, true])("preserves both account choices when allowExistingAccountLogin is %s", async allowExistingAccountLogin => {

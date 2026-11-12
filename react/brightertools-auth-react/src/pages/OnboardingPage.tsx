@@ -1,5 +1,5 @@
-import { useAuth } from "../hooks/useAuth";
-import { OnboardingCard } from "../components/OnboardingCard";
+import { useAuth } from "../hooks/useAuth.js";
+import { OnboardingCard } from "../components/OnboardingCard.js";
 
 export const OnboardingPage = () => {
   const { session } = useAuth();

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { InvitationManagementPanel } from '../components/InvitationManagementPanel';
+import { InvitationManagementPanel } from '../components/InvitationManagementPanel.js';
 afterEach(cleanup);
 it('shows an application capacity rejection while preserving valid import rows without inventing validation errors', async () => {
     const importInvitations = vi.fn().mockResolvedValue({ success: true, messages: ['3 seats required; 1 available. No invitations sent.'], data: { validationSucceeded: false, queued: false, validRowCount: 3, invalidRowCount: 0, previewRows: [{ rowNumber: 2, firstName: 'Valid', lastName: 'Person', emailAddress: 'valid@example.test' }], invalidRows: [] } });

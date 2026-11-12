@@ -1,5 +1,15 @@
 # Shared Auth release handoff — 12 November 2026
 
+## React 2.1.1 packaging follow-up
+
+Branch `codex/react-esm-release-20261112` fixes extensionless relative imports in
+compiled ESM and declarations. NodeNext compilation, all 153 React tests and an
+installed tarball consumer (native Node plus TypeScript) passed locally.
+`publish-tool.yml` now tests the archive and publishes that same archive.
+Release npm only; do not republish NuGet 1.2.0 or enable new host session features.
+Registry publication and consumer verification follow the release workflow.
+
+
 Prepared versions: NuGet 1.2.0; @brightertools/auth-react 2.1.0. Continue on the existing codex/platform-alignment-20261018-182439 branch, incorporating Windows commit acc13c0. Publication status and validation are recorded below after the release workflow completes.
 
 ## Included changes

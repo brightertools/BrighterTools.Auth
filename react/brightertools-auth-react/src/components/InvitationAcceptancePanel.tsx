@@ -1,9 +1,9 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { defaultInvitationAcceptanceText, formatAuthText, type AuthUiTextOverrides } from "../authUi";
-import { LoginPanel } from "./LoginPanel";
-import { PasswordField } from "./PasswordField";
-import { PasswordRulesChecklist, isPasswordValid } from "./PasswordRulesChecklist";
+import { defaultInvitationAcceptanceText, formatAuthText, type AuthUiTextOverrides } from "../authUi.js";
+import { LoginPanel } from "./LoginPanel.js";
+import { PasswordField } from "./PasswordField.js";
+import { PasswordRulesChecklist, isPasswordValid } from "./PasswordRulesChecklist.js";
 import type {
   InvitationAcceptanceClassNames,
   InvitationCreateAccountExtensionProps,
@@ -11,7 +11,7 @@ import type {
   InvitationExistingAccountLoginOptions,
   InvitationOperationResult,
   InvitationServiceAdapter
-} from "../types/invitations";
+} from "../types/invitations.js";
 
 type FeedbackTone = "danger" | "success" | "info" | "warning";
 type CompletionMode = "accepted" | "connected";

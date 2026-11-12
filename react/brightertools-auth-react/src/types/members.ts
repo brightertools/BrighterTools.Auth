@@ -1,4 +1,4 @@
-import type { InvitationListRequest, InvitationOperationResult } from "./invitations";
+import type { InvitationListRequest, InvitationOperationResult } from "./invitations.js";
 
 export interface MemberListItem {
   id: string;

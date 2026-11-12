@@ -1,5 +1,5 @@
-export * from "./hooks/useReCaptchaEnterprise";
-export * from "./types/recaptcha";
-export * from "./constants/recaptchaActions";
+export * from "./hooks/useReCaptchaEnterprise.js";
+export * from "./types/recaptcha.js";
+export * from "./constants/recaptchaActions.js";
 
 

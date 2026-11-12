@@ -1,6 +1,6 @@
-import type { AuthApiClient } from "./createAuthApi";
-import type { TokenStorage } from "./tokenStorage";
-import type { AuthSession } from "../types/auth";
+import type { AuthApiClient } from "./createAuthApi.js";
+import type { TokenStorage } from "./tokenStorage.js";
+import type { AuthSession } from "../types/auth.js";
 
 export function sessionExpiresAt(session: AuthSession | null): number {
   try {

@@ -1,4 +1,4 @@
-import type { InvitationOperationResult } from './types/invitations';
+import type { InvitationOperationResult } from './types/invitations.js';
 
 /** Read only deliberate API error contracts; never surface exception/HTML bodies. */
 export function invitationHttpFailure(error: unknown, fallback: string): InvitationOperationResult<void> {

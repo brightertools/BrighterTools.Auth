@@ -1,4 +1,4 @@
-import type { InvitationListItem } from "./types/invitations";
+import type { InvitationListItem } from "./types/invitations.js";
 
 /** Reduce host capabilities to valid lifecycle actions; never grant a permission absent from the host. */
 export function invitationLifecycleActions(item: InvitationListItem, now = Date.now()) {

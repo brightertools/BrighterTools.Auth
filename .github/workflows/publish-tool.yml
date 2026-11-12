@@ -77,6 +77,10 @@ jobs:
           mkdir -p ../../artifacts/npm
           npm pack --pack-destination ../../artifacts/npm
 
+      - name: Verify packed native ESM and TypeScript consumers
+        working-directory: ./react/brightertools-auth-react
+        run: npm run test:package
+
       - name: Pack NuGet package
         shell: bash
         run: |
@@ -98,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: brightertools-auth-npm
-          path: ./artifacts/npm/*
+          path: ./artifacts/npm/*.tgz
           if-no-files-found: error
 
       - name: Audit React dependencies
@@ -119,4 +123,4 @@ jobs:
       - name: Publish React companion to npm with Trusted Publishing
         if: ${{ inputs.publish_to_npm }}
         working-directory: ./react/brightertools-auth-react
-        run: npm publish --provenance
+        run: npm publish ../../artifacts/npm/brightertools-auth-react-2.1.1.tgz --provenance

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PasswordField } from "./PasswordField";
+import { PasswordField } from "./PasswordField.js";
 
 export interface LegalConsentCheckboxProps {
   checked: boolean;

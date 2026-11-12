@@ -1,4 +1,4 @@
-import { useAuth } from "./useAuth";
+import { useAuth } from "./useAuth.js";
 
 export const useLogout = () => {
   const { api, setSession } = useAuth();

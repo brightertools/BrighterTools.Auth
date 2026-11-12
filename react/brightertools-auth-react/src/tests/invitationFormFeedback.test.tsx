@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { InvitationManagementPanel } from "../components/InvitationManagementPanel";
-import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePanel";
+import { InvitationManagementPanel } from "../components/InvitationManagementPanel.js";
+import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePanel.js";
 
 const managementAdapter = () => ({
   getInvitationList: vi.fn().mockResolvedValue({ success: true, data: { items: [], totalCount: 0 } }),

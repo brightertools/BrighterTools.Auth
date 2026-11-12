@@ -7,13 +7,13 @@ import {
   resolveAuthProviderUiConfigs,
   type AuthProviderUiConfig,
   type AuthUiTextOverrides
-} from "../authUi";
-import { AuthProviderButton } from "./AuthProviderButton";
-import { EmailVerificationField } from "./EmailVerificationField";
-import { GoogleCredentialButton } from "./GoogleCredentialButton";
-import { PasswordField } from "./PasswordField";
-import { isPasswordValid, PasswordRulesChecklist } from "./PasswordRulesChecklist";
-import type { AccountLoginMethods, AuthProviderType, EmailAddressCandidate, EmailChallengeDeliveryMode, LinkedProvider } from "../types/auth";
+} from "../authUi.js";
+import { AuthProviderButton } from "./AuthProviderButton.js";
+import { EmailVerificationField } from "./EmailVerificationField.js";
+import { GoogleCredentialButton } from "./GoogleCredentialButton.js";
+import { PasswordField } from "./PasswordField.js";
+import { isPasswordValid, PasswordRulesChecklist } from "./PasswordRulesChecklist.js";
+import type { AccountLoginMethods, AuthProviderType, EmailAddressCandidate, EmailChallengeDeliveryMode, LinkedProvider } from "../types/auth.js";
 
 const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
 

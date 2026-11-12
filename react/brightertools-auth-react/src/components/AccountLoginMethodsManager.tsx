@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AccountLoginMethodsPanel, type AccountLoginIdentity } from "./AccountLoginMethodsPanel";
+import { AccountLoginMethodsPanel, type AccountLoginIdentity } from "./AccountLoginMethodsPanel.js";
 import {
   defaultAccountLoginMethodsText,
   formatAuthText,
   getAuthProviderLabel,
   type AuthProviderUiConfig,
   type AuthUiTextOverrides
-} from "../authUi";
-import { useAuth } from "../hooks/useAuth";
-import { signInWithApple } from "../services/appleAuth";
-import { signInWithMicrosoft } from "../services/microsoftAuth";
-import { useLoginMethods } from "../hooks/useLoginMethods";
-import type { AccountLoginMethods, AuthProviderType, LinkedProvider } from "../types/auth";
-import type { BeginEmailChallengeResponse } from "../types/api";
+} from "../authUi.js";
+import { useAuth } from "../hooks/useAuth.js";
+import { signInWithApple } from "../services/appleAuth.js";
+import { signInWithMicrosoft } from "../services/microsoftAuth.js";
+import { useLoginMethods } from "../hooks/useLoginMethods.js";
+import type { AccountLoginMethods, AuthProviderType, LinkedProvider } from "../types/auth.js";
+import type { BeginEmailChallengeResponse } from "../types/api.js";
 
 export interface AccountLoginMethodsManagerProps {
   className?: string;

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { InvitationManagementPanel } from "../components/InvitationManagementPanel";
+import { InvitationManagementPanel } from "../components/InvitationManagementPanel.js";
 afterEach(cleanup);
 const setup = () => {
   const api = { getInvitationList: vi.fn().mockResolvedValue({ success: true, data: { items: [], totalCount: 0 } }), inviteUser: vi.fn().mockResolvedValue({ success: true }), importInvitations: vi.fn() };

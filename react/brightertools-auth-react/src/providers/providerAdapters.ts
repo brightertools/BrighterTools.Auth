@@ -1,4 +1,4 @@
-import type { AuthProviderType } from "../types/auth";
+import type { AuthProviderType } from "../types/auth.js";
 
 export interface ExternalProviderAdapter {
   provider: AuthProviderType;

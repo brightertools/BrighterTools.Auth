@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LoginPanel } from "../components/LoginPanel";
+import { LoginPanel } from "../components/LoginPanel.js";
 
 const loginMock = vi.fn();
 const externalLoginMock = vi.fn();

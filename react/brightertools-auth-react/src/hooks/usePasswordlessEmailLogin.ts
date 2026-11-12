@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { useAuth } from "./useAuth";
-import type { BeginPasswordlessEmailLoginRequest, CompletePasswordlessEmailLoginRequest } from "../types/api";
+import { useAuth } from "./useAuth.js";
+import type { BeginPasswordlessEmailLoginRequest, CompletePasswordlessEmailLoginRequest } from "../types/api.js";
 
 export const usePasswordlessEmailLogin = () => {
   const { api, setSession } = useAuth();

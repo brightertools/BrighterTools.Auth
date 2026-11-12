@@ -5,7 +5,7 @@ import {
   createLocalizedAuthUiText,
   mergeAuthUiTextOverrides,
   resolveAuthProviderUiConfigs
-} from "../authUi";
+} from "../authUi.js";
 
 describe("resolveAuthProviderUiConfigs", () => {
   it("orders providers by buttonOrder before falling back to declaration order", () => {

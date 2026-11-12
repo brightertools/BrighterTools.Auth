@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { VerifyEmailPanel } from "./VerifyEmailPanel";
-import { useAuth } from "../hooks/useAuth";
+import { VerifyEmailPanel } from "./VerifyEmailPanel.js";
+import { useAuth } from "../hooks/useAuth.js";
 
 export type VerifyEmailPurpose = "email-verification" | "login-email-change" | string;
 export interface VerificationResult { success: boolean; message?: string; }

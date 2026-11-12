@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createLocalStorageTokenStorage } from "../services/tokenStorage";
+import { createLocalStorageTokenStorage } from "../services/tokenStorage.js";
 
 describe("tokenStorage", () => {
   it("persists and clears auth session", () => {

@@ -1,4 +1,4 @@
-import type { AuthSession } from "../types/auth";
+import type { AuthSession } from "../types/auth.js";
 
 export interface TokenStorage {
   get(): AuthSession | null;

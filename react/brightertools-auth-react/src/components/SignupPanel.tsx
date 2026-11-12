@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AuthApiError } from "../errors/AuthApiError";
+import { AuthApiError } from "../errors/AuthApiError.js";
 import {
   defaultEmailVerificationFieldText,
   defaultSignupPanelText,
@@ -8,19 +8,19 @@ import {
   resolveAuthProviderUiConfigs,
   type AuthProviderUiConfig,
   type AuthUiTextOverrides
-} from "../authUi";
-import { AuthProviderButton } from "./AuthProviderButton";
-import { EmailVerificationField } from "./EmailVerificationField";
-import { GoogleCredentialButton } from "./GoogleCredentialButton";
-import { LegalConsentCheckbox } from "./SignupForm";
-import { PasswordField } from "./PasswordField";
-import { isPasswordValid, PasswordRulesChecklist } from "./PasswordRulesChecklist";
-import { signInWithApple } from "../services/appleAuth";
-import { signInWithMicrosoft } from "../services/microsoftAuth";
-import { useAuth } from "../hooks/useAuth";
-import { usePasswordSignup } from "../hooks/usePasswordSignup";
-import { useSignupEmailVerification } from "../hooks/useSignupEmailVerification";
-import type { AuthProviderType } from "../types/auth";
+} from "../authUi.js";
+import { AuthProviderButton } from "./AuthProviderButton.js";
+import { EmailVerificationField } from "./EmailVerificationField.js";
+import { GoogleCredentialButton } from "./GoogleCredentialButton.js";
+import { LegalConsentCheckbox } from "./SignupForm.js";
+import { PasswordField } from "./PasswordField.js";
+import { isPasswordValid, PasswordRulesChecklist } from "./PasswordRulesChecklist.js";
+import { signInWithApple } from "../services/appleAuth.js";
+import { signInWithMicrosoft } from "../services/microsoftAuth.js";
+import { useAuth } from "../hooks/useAuth.js";
+import { usePasswordSignup } from "../hooks/usePasswordSignup.js";
+import { useSignupEmailVerification } from "../hooks/useSignupEmailVerification.js";
+import type { AuthProviderType } from "../types/auth.js";
 
 export interface SignupPanelProps {
   className?: string;

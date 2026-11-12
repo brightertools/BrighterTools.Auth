@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { AccountLoginMethodsManager } from "../components/AccountLoginMethodsManager";
-import type { AccountLoginMethods } from "../types/auth";
+import { AccountLoginMethodsManager } from "../components/AccountLoginMethodsManager.js";
+import type { AccountLoginMethods } from "../types/auth.js";
 
 const loadMock = vi.fn();
 const beginContactMock = vi.fn();

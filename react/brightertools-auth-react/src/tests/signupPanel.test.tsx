@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { SignupPanel } from "../components/SignupPanel";
+import { SignupPanel } from "../components/SignupPanel.js";
 
 vi.mock("../hooks/useAuth", () => ({
   useAuth: () => ({ login: vi.fn(), externalSignup: vi.fn() })

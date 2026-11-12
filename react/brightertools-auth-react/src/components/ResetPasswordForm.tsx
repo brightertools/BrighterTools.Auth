@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { PasswordField } from "./PasswordField";
-import { isPasswordValid, PasswordRulesChecklist, type PasswordRule } from "./PasswordRulesChecklist";
+import { PasswordField } from "./PasswordField.js";
+import { isPasswordValid, PasswordRulesChecklist, type PasswordRule } from "./PasswordRulesChecklist.js";
 
 export interface ResetPasswordFormProps {
   minimumPasswordLength?: number;

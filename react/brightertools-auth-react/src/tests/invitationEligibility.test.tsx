@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePanel";
-import { InvitationManagementPanel } from "../components/InvitationManagementPanel";
+import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePanel.js";
+import { InvitationManagementPanel } from "../components/InvitationManagementPanel.js";
 afterEach(cleanup);
 const acceptance = () => ({
   getInvitationDetails: vi.fn().mockResolvedValue({ success: true, data: { email: "company@example.test", firstName: "", lastName: "", accountName: "Company", status: "pending", isValid: true, canChangeEmailAddress: false } }),

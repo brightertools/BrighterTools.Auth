@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePanel";
+import { InvitationAcceptancePanel } from "../components/InvitationAcceptancePanel.js";
 
 const adapterFor = (canChangeEmailAddress = false) => ({
   getInvitationDetails: vi.fn().mockResolvedValue({

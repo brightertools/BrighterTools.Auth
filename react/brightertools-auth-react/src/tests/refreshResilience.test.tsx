@@ -1,10 +1,10 @@
-import { createSessionCoordinator } from "../services/sessionCoordinator";
+import { createSessionCoordinator } from "../services/sessionCoordinator.js";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthProvider, type AuthContextValue } from "../context/AuthContext";
-import { useAuth } from "../hooks/useAuth";
-import { createAuthApi, type AuthApiClient } from "../services/createAuthApi";
-import type { AuthSession } from "../types/auth";
+import { AuthProvider, type AuthContextValue } from "../context/AuthContext.js";
+import { useAuth } from "../hooks/useAuth.js";
+import { createAuthApi, type AuthApiClient } from "../services/createAuthApi.js";
+import type { AuthSession } from "../types/auth.js";
 
 const token = (seconds = 300, name = "user") => `e30.${btoa(JSON.stringify({ exp: Date.now() / 1000 + seconds, sub: name }))}.sig`;
 const session = (seconds = 300): AuthSession => ({ accessToken: token(seconds), refreshToken: "refresh", expiresAtUtc: "" });

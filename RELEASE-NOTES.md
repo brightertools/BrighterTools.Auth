@@ -1,3 +1,11 @@
+# React 2.1.1 — 12 November 2026
+
+The React package now emits explicit `.js` relative imports in JavaScript and
+TypeScript declarations. Its root, session and recaptcha entry points load in
+native Node ESM as well as browser bundlers. A NodeNext build and an installed
+packed-consumer check prevent regressions. Authentication APIs and behaviour are
+unchanged; NuGet remains 1.2.0. The workflow publishes the tested npm archive.
+
 # Release 1.2.0 / React 2.1.0 — 12 November 2026
 
 Opt-in persisted session profiles; provider eligibility enforcement; reusable invitation lifecycle, validation and feedback fixes.

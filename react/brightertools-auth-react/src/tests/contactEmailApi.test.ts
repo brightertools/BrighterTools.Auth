@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAuthApi } from "../services/createAuthApi";
+import { createAuthApi } from "../services/createAuthApi.js";
 
 describe("contact-email API contract", () => {
   it.each(["selectNotificationEmail", "removeContactEmail"] as const)("posts %s with host credentials", async method => {

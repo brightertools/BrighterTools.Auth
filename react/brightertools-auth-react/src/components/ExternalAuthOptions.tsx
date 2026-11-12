@@ -1,6 +1,6 @@
-import { ExternalAuthButtonList } from "./ExternalAuthButtonList";
-import type { AuthProviderUiConfig, AuthUiTextOverrides, GoogleButtonText } from "../authUi";
-import type { AuthProviderType } from "../types/auth";
+import { ExternalAuthButtonList } from "./ExternalAuthButtonList.js";
+import type { AuthProviderUiConfig, AuthUiTextOverrides, GoogleButtonText } from "../authUi.js";
+import type { AuthProviderType } from "../types/auth.js";
 
 export interface ExternalAuthOptionsProps {
   providerUi?: AuthProviderUiConfig[];

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AuthProviderButton } from "./AuthProviderButton";
-import { ExternalAuthButtonList } from "./ExternalAuthButtonList";
-import { PasswordField } from "./PasswordField";
-import { PasswordlessEmailLoginForm } from "./PasswordlessEmailLoginForm";
+import { AuthProviderButton } from "./AuthProviderButton.js";
+import { ExternalAuthButtonList } from "./ExternalAuthButtonList.js";
+import { PasswordField } from "./PasswordField.js";
+import { PasswordlessEmailLoginForm } from "./PasswordlessEmailLoginForm.js";
 import {
   defaultLoginPanelText,
   defaultPasswordLoginFormText,
@@ -14,13 +14,13 @@ import {
   type AuthProviderUiConfig,
   type AuthUiTextOverrides,
   type LoginEmailUiOptions
-} from "../authUi";
-import { signInWithApple } from "../services/appleAuth";
-import { signInWithMicrosoft } from "../services/microsoftAuth";
-import { useAuth } from "../hooks/useAuth";
-import { usePasswordlessEmailLogin } from "../hooks/usePasswordlessEmailLogin";
-import type { AuthProviderType } from "../types/auth";
-import { AuthApiError } from "../errors/AuthApiError";
+} from "../authUi.js";
+import { signInWithApple } from "../services/appleAuth.js";
+import { signInWithMicrosoft } from "../services/microsoftAuth.js";
+import { useAuth } from "../hooks/useAuth.js";
+import { usePasswordlessEmailLogin } from "../hooks/usePasswordlessEmailLogin.js";
+import type { AuthProviderType } from "../types/auth.js";
+import { AuthApiError } from "../errors/AuthApiError.js";
 
 const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
 const defaultRequestErrorMessage = "There was an error processing the request.";

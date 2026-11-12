@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AccountLoginMethodsPanel } from "../components/AccountLoginMethodsPanel";
-import type { AccountLoginMethods, AuthProviderType } from "../types/auth";
+import { AccountLoginMethodsPanel } from "../components/AccountLoginMethodsPanel.js";
+import type { AccountLoginMethods, AuthProviderType } from "../types/auth.js";
 
 const createDetails = (): AccountLoginMethods => ({
   email: "mark.redman@wirebox.co.uk",

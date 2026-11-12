@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { MemberManagementPanel } from "./MemberManagementPanel";
-import type { MemberManagementPanelProps } from "./MemberManagementPanel";
-import { InvitationManagementPanel } from "./InvitationManagementPanel";
-import type { InvitationManagementPanelProps } from "./InvitationManagementPanel";
+import { MemberManagementPanel } from "./MemberManagementPanel.js";
+import type { MemberManagementPanelProps } from "./MemberManagementPanel.js";
+import { InvitationManagementPanel } from "./InvitationManagementPanel.js";
+import type { InvitationManagementPanelProps } from "./InvitationManagementPanel.js";
 
 export interface UserAdministrationPanelProps {
   scopeKey: string;

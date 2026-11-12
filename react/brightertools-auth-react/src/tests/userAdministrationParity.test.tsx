@@ -1,11 +1,11 @@
 import { StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { MemberManagementPanel } from "../components/MemberManagementPanel";
-import { InvitationManagementPanel } from "../components/InvitationManagementPanel";
-import { UserAdministrationPanel } from "../components/UserAdministrationPanel";
-import type { InvitationImportPreview, InvitationListItem } from "../types/invitations";
-import type { MemberListItem } from "../types/members";
+import { MemberManagementPanel } from "../components/MemberManagementPanel.js";
+import { InvitationManagementPanel } from "../components/InvitationManagementPanel.js";
+import { UserAdministrationPanel } from "../components/UserAdministrationPanel.js";
+import type { InvitationImportPreview, InvitationListItem } from "../types/invitations.js";
+import type { MemberListItem } from "../types/members.js";
 
 const member: MemberListItem = { id: "opaque-user-guid", firstName: "Alex", lastName: "Example", email: "alex@example.test",
   role: "member", accessEnabled: true, canEdit: true, canRemove: true };

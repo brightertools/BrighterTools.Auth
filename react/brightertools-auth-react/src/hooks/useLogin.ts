@@ -1,5 +1,5 @@
-import { useAuth } from "./useAuth";
-import type { PasswordLoginRequest } from "../types/api";
+import { useAuth } from "./useAuth.js";
+import type { PasswordLoginRequest } from "../types/api.js";
 
 export const useLogin = () => {
   const { api, setSession } = useAuth();

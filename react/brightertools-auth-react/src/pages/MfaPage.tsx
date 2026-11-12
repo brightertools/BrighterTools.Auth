@@ -1,4 +1,4 @@
-import { MfaChallengeForm } from "../components/MfaChallengeForm";
+import { MfaChallengeForm } from "../components/MfaChallengeForm.js";
 
 export const MfaPage = () => (
   <div className="container py-5">

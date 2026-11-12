@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ForgotPasswordForm, type ForgotPasswordFormProps } from "./ForgotPasswordForm";
-import { ResetPasswordForm, type ResetPasswordFormProps } from "./ResetPasswordForm";
-import { useAuth } from "../hooks/useAuth";
-import type { ApiEnvelope } from "../services/createAuthApi";
+import { ForgotPasswordForm, type ForgotPasswordFormProps } from "./ForgotPasswordForm.js";
+import { ResetPasswordForm, type ResetPasswordFormProps } from "./ResetPasswordForm.js";
+import { useAuth } from "../hooks/useAuth.js";
+import type { ApiEnvelope } from "../services/createAuthApi.js";
 
 export type PasswordActionResult = Pick<ApiEnvelope<unknown>, "success" | "message">;
 

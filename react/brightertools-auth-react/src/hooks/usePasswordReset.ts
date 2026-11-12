@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { useAuth } from "./useAuth";
+import { useAuth } from "./useAuth.js";
 
 export const usePasswordReset = () => {
   const { api } = useAuth();

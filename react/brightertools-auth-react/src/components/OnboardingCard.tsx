@@ -1,4 +1,4 @@
-import type { OnboardingState } from "../types/auth";
+import type { OnboardingState } from "../types/auth.js";
 
 export const OnboardingCard = ({ onboarding }: { onboarding: OnboardingState }) => (
   <div className="card border-warning">

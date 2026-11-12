@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { SignupPanel, type SignupPanelProps } from "./SignupPanel";
+import { SignupPanel, type SignupPanelProps } from "./SignupPanel.js";
 
 export interface SignupDetailField {
   name: string;

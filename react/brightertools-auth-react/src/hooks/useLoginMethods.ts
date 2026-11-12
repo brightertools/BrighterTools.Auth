@@ -1,7 +1,7 @@
 ﻿import { useCallback, useMemo } from "react";
-import { useAuth } from "./useAuth";
-import type { BeginLoginEmailChangeRequest, BeginNotificationEmailChangeRequest, ChangePasswordRequest, CompletePasswordSetupRequest, ExternalLoginRequest, VerifyLoginEmailChangeCodeRequest, VerifyNotificationEmailChangeCodeRequest } from "../types/api";
-import type { LinkedProvider } from "../types/auth";
+import { useAuth } from "./useAuth.js";
+import type { BeginLoginEmailChangeRequest, BeginNotificationEmailChangeRequest, ChangePasswordRequest, CompletePasswordSetupRequest, ExternalLoginRequest, VerifyLoginEmailChangeCodeRequest, VerifyNotificationEmailChangeCodeRequest } from "../types/api.js";
+import type { LinkedProvider } from "../types/auth.js";
 
 export const useLoginMethods = () => {
   const { api } = useAuth();

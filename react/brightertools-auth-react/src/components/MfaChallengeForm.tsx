@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMfa } from "../hooks/useMfa";
+import { useMfa } from "../hooks/useMfa.js";
 
 export const MfaChallengeForm = () => {
   const { challenge } = useMfa();

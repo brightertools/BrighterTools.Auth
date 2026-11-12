@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { AuthGuard } from "../guards/AuthGuard";
-import { OnboardingGuard } from "../guards/OnboardingGuard";
+import { AuthGuard } from "../guards/AuthGuard.js";
+import { OnboardingGuard } from "../guards/OnboardingGuard.js";
 
 const state = vi.hoisted(() => ({ session: null as null | { onboarding?: { required: boolean } } }));
 vi.mock("../hooks/useAuth", () => ({ useAuth: () => ({ ...state, isAuthenticated: !!state.session }) }));

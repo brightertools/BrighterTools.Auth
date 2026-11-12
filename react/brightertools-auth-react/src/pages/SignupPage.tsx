@@ -1,4 +1,4 @@
-import { PasswordSignupForm } from "../components/SignupForm";
+import { PasswordSignupForm } from "../components/SignupForm.js";
 
 export const SignupPage = () => (
   <div className="container py-5">

@@ -1,11 +1,11 @@
-import { createSessionCoordinator } from "../services/sessionCoordinator";
+import { createSessionCoordinator } from "../services/sessionCoordinator.js";
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import type { PropsWithChildren } from "react";
-import type { ExternalSignupRequest } from "../types/api";
-import type { AuthApiClient } from "../services/createAuthApi";
-import type { TokenStorage } from "../services/tokenStorage";
-import type { AuthProviderType, AuthSession } from "../types/auth";
-import { toAuthApiError } from "../errors/AuthApiError";
+import type { ExternalSignupRequest } from "../types/api.js";
+import type { AuthApiClient } from "../services/createAuthApi.js";
+import type { TokenStorage } from "../services/tokenStorage.js";
+import type { AuthProviderType, AuthSession } from "../types/auth.js";
+import { toAuthApiError } from "../errors/AuthApiError.js";
 
 export type JwtPayload = Record<string, unknown> & { exp?: number; sub?: string };
 

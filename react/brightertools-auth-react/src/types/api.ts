@@ -1,4 +1,4 @@
-﻿import type { AuthProviderType, AuthSession, EmailChallengeDeliveryMode, LinkedProvider, OnboardingState, AccountLoginMethods } from "./auth";
+﻿import type { AuthProviderType, AuthSession, EmailChallengeDeliveryMode, LinkedProvider, OnboardingState, AccountLoginMethods } from "./auth.js";
 
 export interface PasswordLoginRequest {
   login: string;

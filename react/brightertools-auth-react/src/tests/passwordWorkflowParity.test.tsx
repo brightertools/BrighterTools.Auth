@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ChangePasswordPanel, ForgotPasswordPanel, ResetPasswordPanel } from "../components/PasswordRecoveryPanels";
-import { WorkspaceSignupPanel } from "../components/WorkspaceSignupPanel";
+import { ChangePasswordPanel, ForgotPasswordPanel, ResetPasswordPanel } from "../components/PasswordRecoveryPanels.js";
+import { WorkspaceSignupPanel } from "../components/WorkspaceSignupPanel.js";
 
 const api = vi.hoisted(() => ({ beginPasswordReset: vi.fn(), completePasswordReset: vi.fn(), changePassword: vi.fn() }));
 vi.mock("../hooks/useAuth", () => ({ useAuth: () => ({ api }) }));
