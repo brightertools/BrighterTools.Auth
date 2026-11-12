@@ -7,7 +7,11 @@ compiled ESM and declarations. NodeNext compilation, all 153 React tests and an
 installed tarball consumer (native Node plus TypeScript) passed locally.
 `publish-tool.yml` now tests the archive and publishes that same archive.
 Release npm only; do not republish NuGet 1.2.0 or enable new host session features.
-Registry publication and consumer verification follow the release workflow.
+Published via workflow https://github.com/brightertools/BrighterTools.Auth/actions/runs/43264594136
+from `6c3dc8b8a957879555bd6577b2752045344ba7dd`. Registry integrity and SLSA provenance
+match this workflow/source. Downloaded archive SHA-256:
+`4704c712baa675e3570511e4735d4f7e5e0c65b0aee724018b2643c4215bfba0`.
+NuGet publication was disabled for this run.
 
 
 Prepared versions: NuGet 1.2.0; @brightertools/auth-react 2.1.0. Continue on the existing codex/platform-alignment-20261018-182439 branch, incorporating Windows commit acc13c0. Publication status and validation are recorded below after the release workflow completes.
