@@ -49,7 +49,7 @@ NuGet uses `NuGet/login@v1` and GitHub OIDC. npm uses trusted publishing from Gi
 - NuGet package owner has a Trusted Publishing policy for this repository, `publish-tool.yml`, and the `production` environment.
 - npm package has a Trusted Publisher entry for this repository, `publish-tool.yml`, and the `production` environment.
 - Package metadata uses the `MIT-0` license.
-- NuGet version is `1.1.0`; npm version is `2.0.0` (Router 7 and contact-email adapter breaking changes).
+- NuGet version is `1.2.0`; npm version is `2.1.0` (Router 7 and contact-email adapter breaking changes).
 
 ## Related Docs
 

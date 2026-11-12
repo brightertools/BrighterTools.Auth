@@ -1,3 +1,9 @@
+# Release 1.2.0 / React 2.1.0 — 12 November 2026
+
+Opt-in persisted session profiles; provider eligibility enforcement; reusable invitation lifecycle, validation and feedback fixes.
+
+See [HANDOFF.md](HANDOFF.md) for consumer requirements and publication evidence.
+
 # Release 1.1.0 — 2026-09-17
 
 This release updates the existing library; SQL Server defaults and host-owned

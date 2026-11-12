@@ -25,6 +25,10 @@ public sealed class BrighterToolsAuthOptionsValidator : IValidateOptions<Brighte
             failures.Add("BrighterToolsAuth:RefreshTokens:Lifetime must be greater than zero.");
         }
 
+        if (options.RefreshTokens.Profiles is null || options.RefreshTokens.Profiles.Any(profile =>
+            string.IsNullOrWhiteSpace(profile.Key) || profile.Key.Length > 64 || profile.Value <= TimeSpan.Zero))
+            failures.Add("Refresh session profiles require a non-empty identifier of at most 64 characters and a positive lifetime.");
+
         if (options.Mfa.RecoveryCodeCount <= 0)
         {
             failures.Add("BrighterToolsAuth:Mfa:RecoveryCodeCount must be greater than zero.");

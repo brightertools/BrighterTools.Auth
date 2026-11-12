@@ -8,6 +8,9 @@ namespace BrighterTools.Auth.Dtos;
 /// </summary>
 public sealed class SwitchTenantRequest
 {
+    /// <summary>Optional current refresh credential supplied by the trusted host to preserve and rotate the session profile.</summary>
+    public string? RefreshToken { get; init; }
+
     /// <summary>
     /// Gets the host user identifier whose active tenant should be switched.
     /// </summary>

@@ -9,4 +9,5 @@ public sealed record PersistedRefreshToken(
     DateTimeOffset IssuedAtUtc,
     DateTimeOffset ExpiresAtUtc,
     AuthSessionMetadata Session,
-    DateTimeOffset? RevokedAtUtc = null);
+    DateTimeOffset? RevokedAtUtc = null,
+    string? SessionProfile = null);

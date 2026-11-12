@@ -45,6 +45,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     private readonly IUserSecurityEventRecorder _securityEventRecorder;
     private readonly IClock _clock;
     private readonly BrighterToolsAuthOptions _options;
+    private readonly IAuthSessionProfileContext? _sessionProfileContext;
 
     /// <summary>
     /// Initializes a new instance of the DefaultAuthOrchestrator class.
@@ -80,7 +81,8 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         IUserSecurityEventRecorder securityEventRecorder,
         IClock clock,
         IOptions<BrighterToolsAuthOptions> options,
-        ISignupEmailVerificationWorkflowService? signupEmailVerificationWorkflowService = null)
+        ISignupEmailVerificationWorkflowService? signupEmailVerificationWorkflowService = null,
+        IAuthSessionProfileContext? sessionProfileContext = null)
     {
         _userLookupService = userLookupService;
         _userProvisioningService = userProvisioningService;
@@ -113,6 +115,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         _securityEventRecorder = securityEventRecorder;
         _clock = clock;
         _options = options.Value;
+        _sessionProfileContext = sessionProfileContext;
     }
 
     /// <summary>
@@ -287,9 +290,30 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
             throw new InvalidOperationException("Tenant is required.");
         }
 
+        AuthRefreshToken? current = null;
+        if (!string.IsNullOrEmpty(request.RefreshToken))
+        {
+            current = await _refreshTokenStore.FindAsync(request.RefreshToken, cancellationToken);
+            if (current is null || current.IsRevoked || current.ExpiresAtUtc <= _clock.UtcNow || current.UserId != request.UserId || current.Provider != request.Provider)
+                throw new AuthFailureException("invalid_refresh_token", "Refresh token is invalid.");
+            ResolveSessionProfile(current); // Fail before changing the selected account.
+            EnsureProviderEnabled(current.Provider);
+            var switchingUser = await RequireUserAsync(request.UserId, cancellationToken);
+            EnsureUserCanSignIn(switchingUser);
+            await EnsureProviderAllowedAsync(switchingUser, current.Provider, request.TenantId, cancellationToken);
+        }
         var switchResult = await _tenantSwitchStore.SwitchTenantAsync(request, cancellationToken);
         var userId = string.IsNullOrWhiteSpace(switchResult.UserId) ? request.UserId : switchResult.UserId;
         var tenantId = string.IsNullOrWhiteSpace(switchResult.TenantId) ? request.TenantId : switchResult.TenantId;
+
+        if (current is not null)
+        {
+            EnsureProviderEnabled(current.Provider);
+            var user = await RequireUserAsync(userId, cancellationToken);
+            EnsureUserCanSignIn(user);
+            await EnsureProviderAllowedAsync(user, current.Provider, tenantId, cancellationToken);
+            return await CreateAuthResponseAsync(user, current.Provider, tenantId, request.SwitchToCurrentTenant, cancellationToken, current);
+        }
 
         return await IssueSessionAsync(
             new IssueSessionRequest
@@ -325,7 +349,11 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
             throw new AuthFailureException("invalid_refresh_token", "Refresh token is invalid.");
         }
 
-        var user = await RequireUserAsync(refreshToken.UserId, cancellationToken);
+        var user = await _userLookupService.FindByIdAsync(refreshToken.UserId, cancellationToken);
+        if (user is null || !user.CanSignIn || !_options.Providers.EnabledProviders.Contains(refreshToken.Provider))
+            throw new AuthFailureException("invalid_refresh_token", "Please sign in again.");
+        var policy = await _loginProviderPolicy.EvaluateAsync(user, refreshToken.Provider, request.TenantId ?? refreshToken.TenantId, cancellationToken);
+        if (!policy.Allowed) throw new AuthFailureException("invalid_refresh_token", "Please sign in again.");
         return await CreateAuthResponseAsync(user, refreshToken.Provider, request.TenantId ?? refreshToken.TenantId, request.SwitchToCurrentTenant, cancellationToken, refreshToken);
     }
 
@@ -338,10 +366,25 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     /// <summary>
     /// Signs up a user with a password-based flow.
     /// </summary>
-    public Task<PasswordSignupResult> SignupWithPasswordAsync(PasswordSignupRequest request, CancellationToken cancellationToken = default)
+    public async Task<PasswordSignupResult> SignupWithPasswordAsync(PasswordSignupRequest request, CancellationToken cancellationToken = default)
     {
         ValidateSignupAgeGate(request.DateOfBirth, request.MinimumAgeConfirmed);
-        return _registrationWorkflowService.SignupWithPasswordAsync(request, cancellationToken);
+        // Hosts may still return a legacy signup session. Apply an explicitly selected
+        // fresh-session policy here, after their normal verification/registration workflow.
+        ResolveSessionProfile(null);
+        var result = await _registrationWorkflowService.SignupWithPasswordAsync(request, cancellationToken);
+        if (string.IsNullOrEmpty(_sessionProfileContext?.FreshSessionProfile) || result.RequiresEmailVerification || result.Auth?.Session is null)
+            return result;
+        var auth = await IssueSessionAsync(new IssueSessionRequest
+        {
+            UserId = result.UserId ?? throw new InvalidOperationException("Signup did not return a user."),
+            Provider = AuthProviderType.Password, SwitchToCurrentTenant = true,
+            TenantId = result.Auth.Session.CurrentTenant?.TenantId
+        }, cancellationToken);
+        if (!string.IsNullOrEmpty(result.Auth.Session.RefreshToken))
+            await _refreshTokenStore.RevokeAsync(result.Auth.Session.RefreshToken, "Replaced by signup session policy", cancellationToken);
+        return new PasswordSignupResult { UserId = result.UserId, Auth = auth,
+            RequiresEmailVerification = result.RequiresEmailVerification, Messages = result.Messages, Metadata = result.Metadata };
     }
 
     /// <summary>
@@ -601,7 +644,10 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     /// Begins a passwordless email login challenge.
     /// </summary>
     public Task<BeginPasswordlessEmailLoginResponse> BeginPasswordlessEmailLoginAsync(BeginPasswordlessEmailLoginRequest request, CancellationToken cancellationToken = default)
-        => _passwordlessEmailLoginWorkflowService.BeginAsync(request, cancellationToken);
+    {
+        EnsureProviderEnabled(AuthProviderType.EmailOtp);
+        return _passwordlessEmailLoginWorkflowService.BeginAsync(request, cancellationToken);
+    }
 
     /// <summary>
     /// Completes passwordless email login and issues a session.
@@ -693,8 +739,19 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         }
     }
 
+    private (string? Id, TimeSpan Lifetime) ResolveSessionProfile(AuthRefreshToken? current)
+    {
+        // Existing sessions always inherit persisted policy, including a null/default profile.
+        var id = current is null ? _sessionProfileContext?.FreshSessionProfile : current.SessionProfile;
+        if (string.IsNullOrEmpty(id)) return (null, _options.RefreshTokens.Lifetime);
+        if (!_options.RefreshTokens.Profiles.TryGetValue(id, out var lifetime) || lifetime <= TimeSpan.Zero)
+            throw new AuthFailureException("invalid_refresh_token", "The session profile is unavailable. Please sign in again.");
+        return (id, lifetime);
+    }
+
     private async Task<AuthResponse> CreateAuthResponseAsync(AuthUser user, AuthProviderType provider, string? requestedTenantId, bool switchToCurrentTenant, CancellationToken cancellationToken, AuthRefreshToken? currentRefreshToken = null)
     {
+        var profile = ResolveSessionProfile(currentRefreshToken);
         var tenantMembership = await _tenantContextResolver.ResolveAsync(user, requestedTenantId, switchToCurrentTenant, cancellationToken);
         var descriptor = await _jwtPayloadBuilder.BuildAsync(user, tenantMembership, provider, cancellationToken);
         var accessToken = await _tokenIssuer.IssueAsync(descriptor, cancellationToken);
@@ -704,7 +761,8 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
             TenantId = tenantMembership?.TenantId,
             Provider = provider,
             IssuedAtUtc = _clock.UtcNow,
-            ExpiresAtUtc = _clock.UtcNow.Add(_options.RefreshTokens.Lifetime)
+            ExpiresAtUtc = _clock.UtcNow.Add(profile.Lifetime),
+            SessionProfile = profile.Id
         };
 
         var refreshToken = currentRefreshToken is null || !_options.RefreshTokens.RotateOnRefresh

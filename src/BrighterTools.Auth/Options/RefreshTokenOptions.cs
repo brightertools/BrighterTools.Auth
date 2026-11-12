@@ -9,6 +9,8 @@ public sealed class RefreshTokenOptions
     /// Gets or sets the lifetime.
     /// </summary>
     public TimeSpan Lifetime { get; set; } = TimeSpan.FromDays(14);
+    /// <summary>Opt-in host profiles. Unconfigured hosts retain the default lifetime.</summary>
+    public Dictionary<string, TimeSpan> Profiles { get; set; } = new(StringComparer.Ordinal);
     /// <summary>
     /// Gets or sets a value indicating whether refresh tokens should be rotated when they are exchanged.
     /// </summary>

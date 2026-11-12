@@ -41,6 +41,7 @@ public sealed class HashOnlyRefreshTokenStore(IRefreshTokenPersistence persisten
         if (!IsActive(stored, clock.UtcNow) ||
             !string.Equals(stored!.UserId, request.UserId, StringComparison.Ordinal) ||
             stored.Provider != request.Provider ||
+            stored.SessionProfile != request.SessionProfile ||
             stored.Session.AuthenticatedAtUtc != request.Session!.AuthenticatedAtUtc ||
             stored.Session.SessionId == request.Session.SessionId ||
             stored.Session.LoginFamilyId != request.Session.LoginFamilyId)
@@ -78,13 +79,13 @@ public sealed class HashOnlyRefreshTokenStore(IRefreshTokenPersistence persisten
 
     private static PersistedRefreshToken ToRecord(RefreshTokenIssueRequest request, string raw) =>
         new(Digest(raw), request.UserId, request.TenantId, request.Provider,
-            request.IssuedAtUtc, request.ExpiresAtUtc, request.Session!);
+            request.IssuedAtUtc, request.ExpiresAtUtc, request.Session!, SessionProfile: request.SessionProfile);
 
     private static AuthRefreshToken ToToken(PersistedRefreshToken stored, string raw) => new()
     {
         Token = raw, UserId = stored.UserId, TenantId = stored.TenantId, Provider = stored.Provider,
         CreatedAtUtc = stored.IssuedAtUtc, ExpiresAtUtc = stored.ExpiresAtUtc,
-        IsRevoked = stored.RevokedAtUtc.HasValue, Session = stored.Session
+        IsRevoked = stored.RevokedAtUtc.HasValue, Session = stored.Session, SessionProfile = stored.SessionProfile
     };
 
     private static AuthFailureException InvalidToken() => new("invalid_refresh_token", "The session is invalid or expired.");

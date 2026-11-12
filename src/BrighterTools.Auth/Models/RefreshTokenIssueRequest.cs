@@ -5,6 +5,9 @@ namespace BrighterTools.Auth.Models;
 /// </summary>
 public sealed class RefreshTokenIssueRequest
 {
+    /// <summary>Persisted host session profile; null retains the default web policy.</summary>
+    public string? SessionProfile { get; init; }
+
     /// <summary>Gets non-secret session correlation for hosts using hash-only refresh persistence.</summary>
     public AuthSessionMetadata? Session { get; init; }
 

@@ -1,6 +1,6 @@
 {
   "name": "@brightertools/auth-react",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "React companion components, hooks, API adapters, and localization helpers for BrighterTools.Auth.",
   "license": "MIT-0",
   "type": "module",
@@ -44,7 +44,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./session": { "types": "./dist/session.d.ts", "default": "./dist/session.js" },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "default": "./dist/session.js"
+    },
     "./recaptcha": {
       "types": "./dist/recaptcha.d.ts",
       "default": "./dist/recaptcha.js"

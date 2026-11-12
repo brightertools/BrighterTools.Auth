@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { defaultInvitationAcceptanceText, formatAuthText, type AuthUiTextOverrides } from "../authUi";
 import { LoginPanel } from "./LoginPanel";
+import { PasswordField } from "./PasswordField";
 import { PasswordRulesChecklist, isPasswordValid } from "./PasswordRulesChecklist";
 import type {
   InvitationAcceptanceClassNames,
@@ -617,8 +618,8 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                                     <input id={existingEmailId} type="email" className="form-control" value={existingEmail} readOnly={!details.canChangeEmailAddress && !allowExistingLoginIdentifierEdit} onChange={event => setExistingEmail(event.target.value)} />
                                   </div>
                                   <div className="col-12 col-md-6">
-                                    <label className="form-label" htmlFor={existingPasswordId}>{text.existingAccountPasswordLabel}</label>
-                                    <input id={existingPasswordId} type="password" className="form-control" value={existingPassword} onChange={event => setExistingPassword(event.target.value)} />
+                                    <PasswordField id={existingPasswordId} label={text.existingAccountPasswordLabel} value={existingPassword}
+                                      autoComplete="current-password" disabled={isSubmitting} onChange={setExistingPassword} />
                                   </div>
                                 </div>
                                 <div className="mt-3 d-flex justify-content-end">
@@ -657,12 +658,12 @@ export function InvitationAcceptancePanel<TUser = unknown>({
                               </div>
                               {extensionContent && <div className="col-12">{extensionContent}</div>}
                               <div className="col-12 col-md-6">
-                                <label className="form-label" htmlFor={passwordId}>{text.passwordLabel}</label>
-                                <input id={passwordId} type="password" className="form-control" value={password} onChange={event => setPassword(event.target.value)} />
+                                <PasswordField id={passwordId} label={text.passwordLabel} value={password}
+                                  autoComplete="new-password" disabled={isSubmitting} onChange={setPassword} />
                               </div>
                               <div className="col-12 col-md-6">
-                                <label className="form-label" htmlFor={confirmPasswordId}>{text.confirmPasswordLabel}</label>
-                                <input id={confirmPasswordId} type="password" className="form-control" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} />
+                                <PasswordField id={confirmPasswordId} label={text.confirmPasswordLabel} value={confirmPassword}
+                                  autoComplete="new-password" disabled={isSubmitting} onChange={setConfirmPassword} />
                               </div>
                               <div className="col-12">
                                 <PasswordRulesChecklist password={password} confirmPassword={confirmPassword} minimumLength={minimumPasswordLength} />

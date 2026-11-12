@@ -1,3 +1,46 @@
+Release continuation: [12 November handoff](../HANDOFF.md) records versioned packaging and publication; the dated source-only notes below are historical checkpoints.
+
+# Opt-in native session profiles — 9 November 2026 (local source)
+
+`RefreshTokenOptions.Profiles` defines named lifetimes. Hosts may implement scoped
+`IAuthSessionProfileContext.FreshSessionProfile` for dedicated fresh login/signup
+routes. Never bind this context to refresh input. Null profiles retain the existing
+`Lifetime`; unclassified tokens are not automatically upgraded. Uniiite selects
+`native-mobile` (90 days); other applications are unchanged.
+
+Persist nullable `SessionProfile` (maximum 64 characters) from
+`RefreshTokenIssueRequest` into every refresh-token record and return it from reads.
+Rotation must copy the stored profile, reject substitution, and apply its configured
+lifetime from the current clock. Hash-only persistence already maps the field.
+Hosts using their own store need an additive migration before enabling selection.
+A tenant switch can supply the current host refresh token to retain its profile;
+never trust a client-requested lifetime. Unknown profiles fail closed.
+
+The orchestrator rechecks user/provider eligibility on refresh. Preserve stable
+`invalid_refresh_token` classification and transient-failure handling. Atomic host
+rotation/revocation must also revoke descendants when a previously rotated token is
+replayed. Uniiite's real HTTP/SQL concurrency acceptance verifies this host boundary.
+Access-token lifetime and handoff-code policy are separate and unchanged.
+
+Shared .NET tests: 62 passed; React: 153 passed. Controlled clocks cover native 90-day
+rolling expiry, default 14-day isolation, rotation, signup and tenant switching.
+This is an uncommitted source integration, not a published package release.
+
+## Email OTP provider alignment — 8 November 2026 (source only)
+
+`BeginPasswordlessEmailLoginAsync` now applies the same `EmailOtp` enabled-provider
+guard as completion, before invoking the host workflow or sending a code. Two added
+orchestrator regressions verify disabled begin/complete have no workflow effects and
+enabled completion still requires the ordinary per-user provider policy. Backend53
+checks pass. No package publication or deployment occurred.
+
+Hosts implementing OTP must enable `AuthProviderType.EmailOtp`, report eligibility for
+verified active users, and preserve that provider in persisted refresh tokens. Bind
+`LoginPanel.passwordlessEnabled` to the effective host capability; its legacy default
+is true and does not discover server policy automatically. Uniiite now does this and
+has passed real isolated code delivery/login/replay/refresh/logout checks. Do not enable
+OTP on other hosts solely because they render the shared component.
+
 # Integration Guide
 
 ## Cross-application handoff: 8 October 2026

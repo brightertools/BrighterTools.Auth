@@ -1,3 +1,5 @@
+import { invitationHttpFailure } from "../invitationHttpFailure";
+import { invitationLifecycleActions } from "../invitationLifecycle";
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -178,6 +180,7 @@ function InvitationManagementContent({
   const incompleteImportAdapter = !!adapter.previewInvitationImport !== !!adapter.commitInvitationImport;
   const setEditMode = (mode: "list" | "invite" | "import") => {
     detailSequence.current++;
+    setFeedback(null);
     setEditingInvitation(null); setProtectedLink(null); setConfirmation(null);
     setEditModeState(mode); onViewChange?.({ mode });
   };
@@ -286,8 +289,13 @@ function InvitationManagementContent({
 
   const submitInvite = async (confirmed = false) => {
     if (sendingRef.current) return;
-    if (firstName.trim().length === 0 || lastName.trim().length === 0 || email.trim().length === 0 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || (roleOptions.length > 0 && !roleOptions.some(option => option.value === role))) {
-      setFeedback({ tone: "danger", messages: [managementText.inviteFailedMessage] });
+    const validationMessages: string[] = [];
+    if (!firstName.trim()) validationMessages.push(managementText.firstNameRequiredMessage);
+    if (!lastName.trim()) validationMessages.push(managementText.lastNameRequiredMessage);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) validationMessages.push(managementText.emailInvalidMessage);
+    if (roleOptions.length > 0 && !roleOptions.some(option => option.value === role)) validationMessages.push(managementText.roleRequiredMessage);
+    if (validationMessages.length > 0) {
+      setFeedback({ tone: "danger", messages: validationMessages });
       return;
     }
     if (editingInvitation && !confirmed) {
@@ -349,6 +357,7 @@ function InvitationManagementContent({
     if (view.mode === "resend") { if (editingInvitation?.id !== view.invitationId) void openResend(view.invitationId, false); }
     else {
       detailSequence.current++; setActionInvitationId(""); setEditingInvitation(null); setConfirmation(null); setProtectedLink(null);
+      setFeedback(null);
       if (view.mode === "invite") resetInviteForm();
       if (view.mode === "import") resetImportState();
       setEditModeState(view.mode);
@@ -381,7 +390,7 @@ function InvitationManagementContent({
       if (!response.success) { setFeedbackFromResult("danger", response, failedMessage); return; }
       setConfirmation(null); setProtectedLink(null); setExpandedInvitation(null); setExpandedInvitationId("");
       if (await load(page, pageSize, searchQuery)) setFeedback({ tone: "success", messages: joinResultMessages(response, successMessage) });
-    } catch { if (alive.current) setFeedback({ tone: "danger", messages: [failedMessage] }); }
+    } catch (error) { if (alive.current) setFeedbackFromResult("danger", invitationHttpFailure(error, failedMessage), failedMessage); }
     finally { actionRef.current = false; if (alive.current) setActionInvitationId(""); }
   };
   const confirmAction = (message: string, run: () => void, always = false) => {
@@ -807,7 +816,7 @@ function InvitationManagementContent({
                                 {icon("copyLink")}{managementText.copyLinkLabel}
                               </button>
                             )}
-                            {!!(adapter.resendInvitation || adapter.editAndResendInvitation) && (item.canResend ?? false) && (
+                            {!!(adapter.resendInvitation || adapter.editAndResendInvitation) && invitationLifecycleActions(item).canResend && (
                               <button
                                 type="button"
                                 className="btn btn-outline-primary"
@@ -817,7 +826,7 @@ function InvitationManagementContent({
                                 {icon("resend")}{actionInvitationId === item.id ? managementText.resendingLabel : managementText.resendLabel}
                               </button>
                             )}
-                            {!!adapter.cancelInvitation && (item.canCancel ?? false) && (
+                            {!!adapter.cancelInvitation && invitationLifecycleActions(item).canCancel && (
                               <button
                                 type="button"
                                 className="btn btn-outline-warning"
@@ -827,7 +836,7 @@ function InvitationManagementContent({
                                 {icon("cancel")}{actionInvitationId === item.id ? managementText.cancellingInvitationLabel : managementText.cancelInvitationLabel}
                               </button>
                             )}
-                            {!!adapter.removeInvitation && (item.canRemove ?? false) && (
+                            {!!adapter.removeInvitation && invitationLifecycleActions(item).canRemove && (
                               <button
                                 type="button"
                                 className="btn btn-outline-danger"
@@ -837,7 +846,7 @@ function InvitationManagementContent({
                                 {icon("remove")}{actionInvitationId === item.id ? managementText.removingInvitationLabel : managementText.removeInvitationLabel}
                               </button>
                             )}
-                            {!!adapter.archiveInvitation && item.canArchive && item.status !== "pending" && item.status !== "unknown" && <button type="button" className="btn btn-outline-danger" disabled={actionInvitationId.length > 0}
+                            {!!adapter.archiveInvitation && invitationLifecycleActions(item).canArchive && <button type="button" className="btn btn-outline-danger" disabled={actionInvitationId.length > 0}
                               onClick={() => confirmAction(managementText.archiveConfirmationMessage, () => void performAction(item.id, () => adapter.archiveInvitation!(item.id), managementText.removeSuccessMessage, managementText.removeFailedMessage), true)}>{icon("archive")}{managementText.archiveLabel}</button>}
                             {!!adapter.getInvitationLink && item.canCopyLink && canRetrieveLink(item) && <button type="button" className="btn btn-outline-secondary" disabled={actionInvitationId.length > 0} onClick={() => void copyInviteLink(item, false)}>{icon("showLink")}{managementText.showLinkLabel}</button>}
                             {!!adapter.getInvitation && (item.canViewDetails ?? true) && (

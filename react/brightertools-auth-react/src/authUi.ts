@@ -356,6 +356,10 @@ export interface InvitationManagementTextOverrides {
   sendingInvitationLabel?: string;
   inviteSuccessMessage?: string;
   inviteFailedMessage?: string;
+  firstNameRequiredMessage?: string;
+  lastNameRequiredMessage?: string;
+  emailInvalidMessage?: string;
+  roleRequiredMessage?: string;
   cancelLabel?: string;
   pageSummaryLabel?: string;
   previousLabel?: string;
@@ -767,6 +771,10 @@ export const defaultInvitationManagementText: Required<InvitationManagementTextO
   sendingInvitationLabel: "Sending Invitation",
   inviteSuccessMessage: "Invitation sent.",
   inviteFailedMessage: "Failed to send invitation.",
+  firstNameRequiredMessage: "Enter the recipient's first name.",
+  lastNameRequiredMessage: "Enter the recipient's last name.",
+  emailInvalidMessage: "Enter a valid recipient email address, such as name@example.com.",
+  roleRequiredMessage: "Select a valid role for the invitation.",
   cancelLabel: "Cancel",
   pageSummaryLabel: "Showing page {page} of {totalPages} ({totalCount} total)",
   previousLabel: "Previous",

@@ -14,6 +14,38 @@ namespace BrighterTools.Auth.Tests;
 public sealed class DefaultAuthOrchestratorTests
 {
     [Fact]
+    public async Task DisabledEmailOtpRejectsBothStepsBeforeCallingTheHostWorkflow()
+    {
+        var workflow = new FakePasswordlessWorkflow();
+        var harness = TestHarness.Create(passwordlessWorkflow: workflow);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Orchestrator.BeginPasswordlessEmailLoginAsync(new() { Login = "alice@example.com" }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Orchestrator.CompletePasswordlessEmailLoginAsync(new() { ChallengeId = "challenge", Code = "123456" }));
+        Assert.Equal(0, workflow.Begins); Assert.Equal(0, workflow.Completions);
+    }
+
+    [Fact]
+    public async Task EnabledEmailOtpUsesAccountPolicyAndIssuesAnOtpSession()
+    {
+        var workflow = new FakePasswordlessWorkflow();
+        var harness = TestHarness.Create(emailOtpEnabled: true, passwordlessWorkflow: workflow,
+            reloadedUser: CreateUser([AuthProviderType.EmailOtp]), providerPolicy: new EnabledProvidersUserLoginProviderPolicy());
+        await harness.Orchestrator.BeginPasswordlessEmailLoginAsync(new() { Login = "alice@example.com" });
+        var result = await harness.Orchestrator.CompletePasswordlessEmailLoginAsync(new() { ChallengeId = "challenge", Code = "123456", TenantId = "tenant-a" });
+        Assert.Equal(1, workflow.Begins); Assert.Equal(1, workflow.Completions);
+        Assert.Equal(AuthProviderType.EmailOtp, result.Session!.Provider);
+        Assert.Equal("issued-access-token", result.Session.AccessToken);
+    }
+
+    private sealed class FakePasswordlessWorkflow : IPasswordlessEmailLoginWorkflowService
+    {
+        public int Begins; public int Completions;
+        public Task<BeginPasswordlessEmailLoginResponse> BeginAsync(BeginPasswordlessEmailLoginRequest request, CancellationToken cancellationToken = default)
+        { Begins++; return Task.FromResult(new BeginPasswordlessEmailLoginResponse { ChallengeId = "challenge", CodeSent = true }); }
+        public Task<PasswordlessEmailLoginVerificationResult> CompleteAsync(CompletePasswordlessEmailLoginRequest request, CancellationToken cancellationToken = default)
+        { Completions++; return Task.FromResult(new PasswordlessEmailLoginVerificationResult { UserId = "user-1" }); }
+    }
+
+    [Fact]
     public async Task ExistingProviderLoginRefreshesEvidenceWithoutRelinking()
     {
         var harness = TestHarness.Create();
@@ -330,6 +362,96 @@ public sealed class DefaultAuthOrchestratorTests
             TenantMemberships = [new AuthTenantMembership { TenantId = "tenant-a", TenantName = "Tenant A", Role = "Admin", IsCurrent = true }]
         };
 
+    private sealed class TenantSwitch : IAuthTenantSwitchStore
+    {
+        public int Calls;
+        public Task<AuthTenantSwitchResult> SwitchTenantAsync(SwitchTenantRequest request, CancellationToken cancellationToken = default)
+        { Calls++; return Task.FromResult(new AuthTenantSwitchResult { UserId = request.UserId, TenantId = request.TenantId }); }
+    }
+
+    [Theory]
+    [InlineData(null, 14)]
+    [InlineData("native-mobile", 90)]
+    public async Task AccountSwitchRotatesStoredProfile(string? profile, int days)
+    {
+        var clock = new MovingClock(); var context = new TestProfile { FreshSessionProfile = profile }; var switching = new TenantSwitch();
+        var harness = TestHarness.Create(profileContext: context, clock: clock, tenantSwitch: switching);
+        await harness.Orchestrator.LoginWithPasswordAsync(new() { Login = "alice@example.com", Password = "secret" });
+        context.FreshSessionProfile = null; clock.UtcNow = clock.UtcNow.AddDays(1);
+        await harness.Orchestrator.SwitchTenantAsync(new() { UserId = "user-1", TenantId = "tenant-a", Provider = AuthProviderType.Password, RefreshToken = "refresh-1" });
+        Assert.Equal(1, switching.Calls);
+        Assert.Equal(profile, harness.RefreshTokenStore.StoredToken!.SessionProfile);
+        Assert.Equal(clock.UtcNow.AddDays(days), harness.RefreshTokenStore.StoredToken.ExpiresAtUtc);
+    }
+
+    [Fact]
+    public async Task NativeSignupAppliesPolicyAfterVerifiedHostRegistration()
+    {
+        var harness = TestHarness.Create(profileContext: new TestProfile { FreshSessionProfile = "native-mobile" });
+        harness.RegistrationWorkflowService.SignupResult = new() { UserId = "user-1", Auth = new AuthResponse { Session = new() { AccessToken = "old-access", RefreshToken = "old-refresh" } } };
+        var result = await harness.Orchestrator.SignupWithPasswordAsync(new() { Email = "alice@example.com", Password = "secret" });
+        Assert.Equal("native-mobile", harness.RefreshTokenStore.StoredToken!.SessionProfile);
+        Assert.Equal("refresh-1", result.Auth!.Session!.RefreshToken);
+    }
+
+    [Fact]
+    public async Task RefreshRejectsUserWhoCanNoLongerSignIn()
+    {
+        var harness = TestHarness.Create(reloadedUser: new AuthUser { Id = "user-1", CanSignIn = false });
+        await harness.Orchestrator.LoginWithPasswordAsync(new() { Login = "alice@example.com", Password = "secret" });
+        var error = await Assert.ThrowsAsync<AuthFailureException>(() => harness.Orchestrator.RefreshAsync(new() { RefreshToken = "refresh-1" }));
+        Assert.Equal("invalid_refresh_token", error.Code);
+    }
+
+    private sealed class TestProfile : IAuthSessionProfileContext
+    {
+        public string? FreshSessionProfile { get; set; }
+    }
+    private sealed class MovingClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = new(2026, 11, 9, 12, 0, 0, TimeSpan.Zero);
+    }
+
+    [Theory]
+    [InlineData(null, 14)]
+    [InlineData("native-mobile", 90)]
+    public async Task FreshSessionUsesOnlyHostSelectedPolicy(string? profile, int days)
+    {
+        var clock = new MovingClock();
+        var harness = TestHarness.Create(profileContext: new TestProfile { FreshSessionProfile = profile }, clock: clock);
+        await harness.Orchestrator.LoginWithPasswordAsync(new() { Login = "alice@example.com", Password = "secret" });
+        Assert.Equal(profile, harness.RefreshTokenStore.StoredToken!.SessionProfile);
+        Assert.Equal(clock.UtcNow.AddDays(days), harness.RefreshTokenStore.StoredToken.ExpiresAtUtc);
+    }
+
+    [Theory]
+    [InlineData(null, "native-mobile", 14)]
+    [InlineData("native-mobile", null, 90)]
+    public async Task RotationRenewsStoredPolicyWithoutUpgradingFromRequestContext(string? initial, string? attempted, int days)
+    {
+        var clock = new MovingClock();
+        var profile = new TestProfile { FreshSessionProfile = initial };
+        var harness = TestHarness.Create(profileContext: profile, clock: clock);
+        await harness.Orchestrator.LoginWithPasswordAsync(new() { Login = "alice@example.com", Password = "secret" });
+        clock.UtcNow = clock.UtcNow.AddDays(10);
+        profile.FreshSessionProfile = attempted;
+        await harness.Orchestrator.RefreshAsync(new() { RefreshToken = "refresh-1" });
+        Assert.Equal(initial, harness.RefreshTokenStore.StoredToken!.SessionProfile);
+        Assert.Equal(clock.UtcNow.AddDays(days), harness.RefreshTokenStore.StoredToken.ExpiresAtUtc);
+    }
+
+    [Fact]
+    public async Task ExpiredNativeSessionCannotBeRevived()
+    {
+        var clock = new MovingClock();
+        var harness = TestHarness.Create(profileContext: new TestProfile { FreshSessionProfile = "native-mobile" }, clock: clock);
+        await harness.Orchestrator.LoginWithPasswordAsync(new() { Login = "alice@example.com", Password = "secret" });
+        clock.UtcNow = clock.UtcNow.AddDays(90);
+        var error = await Assert.ThrowsAsync<AuthFailureException>(() => harness.Orchestrator.RefreshAsync(new() { RefreshToken = "refresh-1" }));
+        Assert.Equal("invalid_refresh_token", error.Code);
+        Assert.Equal("refresh-1", harness.RefreshTokenStore.StoredToken!.Token);
+    }
+
     private sealed class TestHarness
     {
         public required DefaultAuthOrchestrator Orchestrator { get; init; }
@@ -349,7 +471,8 @@ public sealed class DefaultAuthOrchestratorTests
             bool hasLinkedExternalLogin = true,
             AuthUser? provisionedUser = null,
             AuthUser? reloadedUser = null,
-            IUserLoginProviderPolicy? providerPolicy = null)
+            IUserLoginProviderPolicy? providerPolicy = null,
+            bool emailOtpEnabled = false, IPasswordlessEmailLoginWorkflowService? passwordlessWorkflow = null, IAuthSessionProfileContext? profileContext = null, IClock? clock = null, IAuthTenantSwitchStore? tenantSwitch = null)
         {
             var user = CreateUser();
             var userLookup = new FakeUserLookupService(user, hasLinkedExternalLogin, reloadedUser ?? user);
@@ -383,6 +506,9 @@ public sealed class DefaultAuthOrchestratorTests
                 }
             });
 
+            authOptions.Value.RefreshTokens.Profiles["native-mobile"] = TimeSpan.FromDays(90);
+            if (emailOtpEnabled) authOptions.Value.Providers.EnabledProviders.Add(AuthProviderType.EmailOtp);
+
             var orchestrator = new DefaultAuthOrchestrator(
                 userLookup,
                 userProvisioning,
@@ -400,20 +526,20 @@ public sealed class DefaultAuthOrchestratorTests
                 refreshTokenStore,
                 new FakeAuthSessionStore(),
                 new FakeTenantContextResolver(),
-                new UnsupportedAuthTenantSwitchStore(),
+                tenantSwitch ?? new UnsupportedAuthTenantSwitchStore(),
                 new FakeOnboardingEvaluator(onboarding ?? OnboardingState.NotRequired()),
                 new FakeOnboardingCompletionService(),
                 emailWorkflow,
                 new UnsupportedAccountLoginMethodWorkflowService(),
-                new UnsupportedPasswordlessEmailLoginWorkflowService(),
+                passwordlessWorkflow ?? new UnsupportedPasswordlessEmailLoginWorkflowService(),
                 new UnsupportedMfaSecretStore(),
                 new FakeMfaChallengeService(mfaChallengeShouldSucceed),
                 new FakeRecoveryCodeService(recoveryCodeShouldSucceed),
                 providerPolicy ?? new FakeProviderPolicy(providerPolicyAllowed),
                 new PreventLastLoginProviderUnlinkPolicy(),
                 new NoOpSecurityEventRecorder(),
-                new FixedClock(),
-                authOptions);
+                clock ?? new FixedClock(),
+                authOptions, sessionProfileContext: profileContext);
 
             return new TestHarness
             {
@@ -607,6 +733,7 @@ public sealed class DefaultAuthOrchestratorTests
                 TenantId = request.TenantId,
                 Provider = request.Provider,
                 CreatedAtUtc = request.IssuedAtUtc,
+                SessionProfile = request.SessionProfile,
                 ExpiresAtUtc = request.ExpiresAtUtc
             };
 
@@ -625,6 +752,7 @@ public sealed class DefaultAuthOrchestratorTests
                 TenantId = request.TenantId,
                 Provider = request.Provider,
                 CreatedAtUtc = request.IssuedAtUtc,
+                SessionProfile = request.SessionProfile,
                 ExpiresAtUtc = request.ExpiresAtUtc
             };
 
