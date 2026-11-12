@@ -23,3 +23,24 @@ Use publishing.md and .github/workflows/publish-tool.yml with the production env
 12 November 2026: Release .NET tests 62 passed, 0 skipped; React tests 153 passed; React build and npm pack passed; npm audit reported zero vulnerabilities after compatible development dependency updates. NuGet restore audited transitive dependencies with NU1901–NU1904 as errors; NuGet pack succeeded. Existing documentation/nullability warnings remain non-blocking. npm lock includes patched Vitest 5.1.0, Vite 8.3.8, undici 8.12.4 and source-map-js 1.2.2.
 
 Commands: `dotnet test BrighterTools.Auth.sln -c Release -m:1 -p:NuGetAuditMode=all -warnaserror:NU1901,NU1902,NU1903,NU1904`; in the React package: `npm test`, `npm run build`, `npm audit --audit-level=low`, `npm pack`. CI repeats these checks from the pushed commit before publication. This is package validation, not a new end-to-end deployment acceptance.
+
+## Published release
+
+The trusted-publishing workflow completed successfully on 12 November 2026.
+
+- Published source commit: `f6de8a22415de6790cdda370a35d63cd45fd23e8`.
+- Workflow: [https://github.com/brightertools/BrighterTools.Auth/actions/runs/43246271881](https://github.com/brightertools/BrighterTools.Auth/actions/runs/43246271881).
+- CI repeated the required tests, audits and package validation before successful registry uploads.
+- Registry availability is checked separately below; workflow success alone is not a download check.
+
+CI package SHA-256 (before any registry repository signing):
+
+- `brightertools-auth-react-2.1.0.tgz`: `9e1cf7c820f306ec8806185af7c4b565b7877c6e009dc665488cbadecfdc6410`.
+- `BrighterTools.Auth.1.2.0.nupkg`: `3f44fd2d41801388441067dd4644d339b2cd3db5aedfdab0a8f011c90080eabf`.
+
+For rollback, pin consumers to their prior package versions and review host migrations separately; do not delete published packages or undo additive host schema as part of package rollback. Source-reference consumers use their reviewed sibling revisions, not a substituted registry reference.
+
+Registry availability verified at 2026-11-12T15:26:20.660764+00:00: NuGet 1.2.0 and npm 2.1.0 downloaded successfully. NuGet contents match CI excluding its repository signature; the npm archive matches CI byte-for-byte.
+
+- Published `BrighterTools.Auth` SHA-256: `de9152635f433cec33df4f6adf94af1f3879f23a901d41b5c57fda7473539c0f`.
+- Published `@brightertools/auth-react` SHA-256: `9e1cf7c820f306ec8806185af7c4b565b7877c6e009dc665488cbadecfdc6410`.
