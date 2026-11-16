@@ -123,4 +123,6 @@ jobs:
       - name: Publish React companion to npm with Trusted Publishing
         if: ${{ inputs.publish_to_npm }}
         working-directory: ./react/brightertools-auth-react
-        run: npm publish ../../artifacts/npm/brightertools-auth-react-2.2.0.tgz --provenance
+        run: |
+          archive=$(node -p "'brightertools-auth-react-' + require('./package.json').version + '.tgz'")
+          npm publish "../../artifacts/npm/$archive" --provenance

@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('../', import.meta.url))
+const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
+const archive = `${manifest.name.replace(/^@/, '').replaceAll('/', '-')}-${manifest.version}.tgz`
 const artifacts = resolve(root, '../../artifacts/npm')
 mkdirSync(artifacts, { recursive: true })
 assert(process.env.npm_execpath, 'Run through npm run test:package')
@@ -11,7 +13,7 @@ const npm = (args, cwd = root) => execFileSync(process.execPath, [process.env.np
 npm(['pack', '--pack-destination', artifacts])
 const consumer = mkdtempSync(resolve(artifacts, 'consumer-'))
 writeFileSync(resolve(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
-npm(['install', '--ignore-scripts', '--no-audit', resolve(artifacts, 'brightertools-auth-react-2.2.0.tgz'), 'react@19.3.0', 'react-dom@19.3.0', 'react-router-dom@7.18.4', 'typescript@7.0.2', '@types/react@19.3.0', '@types/react-dom@19.3.0'], consumer)
+npm(['install', '--ignore-scripts', '--no-audit', resolve(artifacts, archive), 'react@19.3.0', 'react-dom@19.3.0', 'react-router-dom@7.18.4', 'typescript@7.0.2', '@types/react@19.3.0', '@types/react-dom@19.3.0'], consumer)
 const code = `import * as auth from '@brightertools/auth-react';
 import * as session from '@brightertools/auth-react/session';
 import * as recaptcha from '@brightertools/auth-react/recaptcha';
