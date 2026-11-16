@@ -1,6 +1,6 @@
 {
   "name": "@brightertools/auth-react",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "React companion components, hooks, API adapters, and localization helpers for BrighterTools.Auth.",
   "license": "MIT-0",
   "type": "module",

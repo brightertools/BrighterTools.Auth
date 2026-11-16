@@ -45,6 +45,8 @@ export interface LoginPanelProps {
   appleRedirectOrigin?: string;
   /** Disable when the host has no passwordless endpoints. Defaults to true. */
   passwordlessEnabled?: boolean;
+  /** Hide the optional entry button while retaining token-link completion for eligible accounts. */
+  showPasswordlessOption?: boolean;
   passwordlessToken?: string | null;
   passwordlessReturnUrl?: string;
   passwordlessCodeReturnUrl?: string;
@@ -71,6 +73,7 @@ export function LoginPanel({
   appleRedirectPath = "/login",
   appleRedirectOrigin,
   passwordlessEnabled = true,
+  showPasswordlessOption = true,
   passwordlessToken,
   passwordlessReturnUrl = "/dashboard",
   passwordlessCodeReturnUrl = "/dashboard",
@@ -317,7 +320,7 @@ export function LoginPanel({
           {isSubmitting ? passwordLoginText.submittingLabel ?? loginText.signingInLabel : passwordLoginText.submitLabel ?? loginText.signInLabel}
         </button>
       </form>
-      {passwordlessEnabled && <div className="border-top mt-4 pt-4">
+      {passwordlessEnabled && showPasswordlessOption && <div className="border-top mt-4 pt-4">
         <button
           type="button"
           className="btn btn-link p-0 small"

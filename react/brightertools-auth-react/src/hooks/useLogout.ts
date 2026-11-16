@@ -1,11 +1,7 @@
+import type { ApiEnvelope } from "../services/createAuthApi.js";
 import { useAuth } from "./useAuth.js";
 
 export const useLogout = () => {
-  const { api, setSession } = useAuth();
-
-  return async (refreshToken?: string) => {
-    const response = await api.logout(refreshToken ? { refreshToken } : undefined);
-    setSession(null);
-    return response;
-  };
+  const { logout } = useAuth();
+  return async (_refreshToken?: string): Promise<ApiEnvelope<unknown>> => { await logout(); return { success: true }; };
 };

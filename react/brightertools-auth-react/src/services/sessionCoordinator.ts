@@ -113,6 +113,27 @@ export function createSessionCoordinator(api: AuthApiClient, storage: TokenStora
         }
       });
     },
+    async transition<T>(operation: () => Promise<T>, selectSession: (result: T) => AuthSession | null | undefined): Promise<T> {
+      const requestedGeneration = generation;
+      return locked(async () => {
+        // A queued operation cannot resurrect a session after logout or another transition.
+        if (!running || requestedGeneration !== generation) throw new Error("The session changed. Please try again.");
+        const revision = ++generation;
+        clear();
+        try {
+          const result = await operation();
+          if (!running || revision !== generation) throw new Error("The session changed. Please try again.");
+          const next = selectSession(result);
+          if (running && revision === generation && next) {
+            if (sessionExpiresAt(next) <= Date.now()) throw new Error("The server returned an invalid session.");
+            adopt(next, true);
+          }
+          return result;
+        } finally {
+          if (running && revision === generation) schedule();
+        }
+      });
+    },
     async logout() {
       const old = snapshot.session;
       adopt(null, true);

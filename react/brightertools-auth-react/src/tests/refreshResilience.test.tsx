@@ -22,6 +22,34 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-08T12:
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("refresh resilience", () => {
+  it("adopts complete host transitions and preserves the current session on validation failure", async () => {
+    const setup = mount(); const replacement = session(900);
+    await act(async () => { await context.transitionSession(async () => ({ success: true, session: replacement }), r => r.success ? r.session : null); });
+    expect(setup.storage.get()).toEqual(replacement);
+    await act(async () => { await context.transitionSession(async () => ({ success: false }), () => null); });
+    expect(setup.storage.get()).toEqual(replacement);
+  });
+  it("does not adopt a transition that finishes after logout", async () => {
+    const setup = mount(); let resolve!: (value: AuthSession) => void;
+    let task!: Promise<AuthSession>;
+    await act(async () => { task = context.transitionSession(() => new Promise(r => { resolve = r; }), r => r); });
+    await act(async () => { await context.logout(); });
+    await act(async () => {
+      resolve(session(900));
+      await expect(task).rejects.toThrow("session changed");
+    });
+    expect(setup.storage.get()).toBeNull();
+  });
+  it("does not start a queued transition after logout", async () => {
+    const callbacks: Array<() => Promise<unknown>> = [];
+    vi.stubGlobal("navigator", { locks: { request: vi.fn((_name, callback) => new Promise((resolve, reject) => { callbacks.push(async () => { try { const result = await callback(); resolve(result); } catch (error) { reject(error); } }); })) } });
+    const setup = mount(); const operation = vi.fn(async () => session(900));
+    const pending = context.transitionSession(operation, r => r);
+    const rejected = expect(pending).rejects.toThrow("session changed");
+    let logout!: Promise<void>;
+    await act(async () => { logout = context.logout(); await callbacks[0](); await rejected; await callbacks[1](); await logout; });
+    expect(operation).not.toHaveBeenCalled(); expect(setup.storage.get()).toBeNull();
+  });
   it("keeps scheduled renewal after a failed fresh authentication", async () => {
     let stored: AuthSession | null = session(300);
     const replacement = session(900);

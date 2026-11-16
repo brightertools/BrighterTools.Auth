@@ -5,6 +5,9 @@
 /// </summary>
 public sealed class RefreshTokenOptions
 {
+    /// <summary>Opt in to correlated rotating sessions. Requires an IAuthSessionTransaction registration
+    /// and persistence that round-trips metadata. Existing hosts remain unchanged.</summary>
+    public bool SessionMetadataEnabled { get; set; }
     /// <summary>
     /// Gets or sets the lifetime.
     /// </summary>

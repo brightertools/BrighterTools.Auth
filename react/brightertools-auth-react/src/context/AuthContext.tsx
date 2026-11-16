@@ -2,6 +2,8 @@ import { createSessionCoordinator } from "../services/sessionCoordinator.js";
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import type { PropsWithChildren } from "react";
 import type { ExternalSignupRequest } from "../types/api.js";
+import type { AuthResponse, RefreshTokenRequest } from "../types/api.js";
+import type { ApiEnvelope } from "../services/createAuthApi.js";
 import type { AuthApiClient } from "../services/createAuthApi.js";
 import type { TokenStorage } from "../services/tokenStorage.js";
 import type { AuthProviderType, AuthSession } from "../types/auth.js";
@@ -18,9 +20,12 @@ export interface AuthContextValue<TUser = unknown, TPayload extends JwtPayload =
   api: AuthApiClient;
   setSession: (session: AuthSession | null) => void;
   setAuthenticatedSession: (session: AuthSession) => void;
+  /** Execute the server operation inside the shared session lock, then adopt its complete session. */
+  transitionSession: <T>(operation: () => Promise<T>, selectSession: (result: T) => AuthSession | null | undefined) => Promise<T>;
   login: (login: string, password: string, tenantId?: string) => Promise<void>;
   externalLogin: (provider: AuthProviderType, credential: string, tenantId?: string) => Promise<void>;
   externalSignup: (request: ExternalSignupRequest) => Promise<void>;
+  refreshSessionResult: (request: RefreshTokenRequest) => Promise<ApiEnvelope<AuthResponse>>;
   refreshSession: (tenantId?: string, switchToCurrentTenant?: boolean) => Promise<boolean>;
   logout: () => Promise<void>;
 }
@@ -94,6 +99,8 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
   const setSession = useCallback((next: AuthSession | null) => coordinator.setSession(next), [coordinator]);
   const refreshSession = useCallback((tenantId?: string, current = false) => coordinator.refresh(tenantId, current), [coordinator]);
   const setAuthenticatedSession = useCallback((nextSession: AuthSession) => setSession(nextSession), [setSession]);
+  const transitionSession = useCallback(<T,>(operation: () => Promise<T>, selectSession: (result: T) => AuthSession | null | undefined) =>
+    coordinator.transition(operation, selectSession), [coordinator]);
 
   const login = useCallback(async (loginValue: string, password: string, tenantId?: string) => coordinator.authenticate(async () => {
     const response = await api.loginWithPassword({ login: loginValue, password, tenantId });
@@ -113,6 +120,12 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
     return response.data.session;
   }), [api, coordinator]);
 
+  const refreshSessionResult = useCallback(async (request: RefreshTokenRequest): Promise<ApiEnvelope<AuthResponse>> => {
+    const success = await coordinator.refresh(request.tenantId, request.switchToCurrentTenant);
+    const current = coordinator.getSnapshot().session;
+    return success && current ? { success: true, data: { session: current } } : { success: false };
+  }, [coordinator]);
+
   const logout = useCallback(() => coordinator.logout(), [coordinator]);
 
   const payload = useMemo(() => decodeJwtPayload<TPayload>(getAccessToken(session)), [session]);
@@ -129,13 +142,15 @@ export const AuthProvider = <TUser, TPayload extends JwtPayload = JwtPayload>({
       api,
       setSession,
       setAuthenticatedSession,
+      transitionSession,
       login,
       externalLogin,
       externalSignup,
       refreshSession,
+      refreshSessionResult,
       logout
     }),
-    [api, externalLogin, externalSignup, isAuthenticated, loading, login, logout, payload, refreshSession, session, setAuthenticatedSession, setSession, user]
+    [api, externalLogin, externalSignup, isAuthenticated, loading, login, logout, payload, refreshSession, refreshSessionResult, session, setAuthenticatedSession, setSession, transitionSession, user]
   );
 
   return <AuthContext.Provider value={value as AuthContextValue}>{children}</AuthContext.Provider>;

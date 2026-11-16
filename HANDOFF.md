@@ -1,3 +1,10 @@
+# Correlated sessions release — 16 November 2026
+
+Prepared NuGet 1.3.0 and React 2.2.0 on codex/adfast-session-replacement from the exact 2.1.1 release commit.
+See docs/correlated-sessions.md for host contracts. Existing host options remain unchanged.
+Local tests: 67 backend and 156 React passed; installed tarball/native ESM/NodeNext checks passed; npm audit found zero vulnerabilities.
+No consumer database migration or deployment performed. Publish through the existing trusted workflow.
+
 # Shared Auth release handoff â€” 12 November 2026
 
 ## React 2.1.1 packaging follow-up

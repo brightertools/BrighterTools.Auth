@@ -11,5 +11,10 @@ public interface IJwtPayloadBuilder
     /// Builds the token descriptor that should be issued for the supplied user, tenant context, and provider.
     /// </summary>
     Task<AuthTokenDescriptor> BuildAsync(AuthUser user, AuthTenantMembership? tenantMembership, AuthProviderType provider, CancellationToken cancellationToken = default);
+
+    /// <summary>Builds a descriptor with correlation established before signing. Existing hosts retain their claims.</summary>
+    Task<AuthTokenDescriptor> BuildAsync(AuthUser user, AuthTenantMembership? tenantMembership, AuthProviderType provider,
+        AuthSessionMetadata session, CancellationToken cancellationToken = default)
+        => BuildAsync(user, tenantMembership, provider, cancellationToken);
 }
 

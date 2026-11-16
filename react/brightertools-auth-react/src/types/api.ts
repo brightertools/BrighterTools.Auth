@@ -21,6 +21,7 @@ export interface PasswordSignupRequest {
 }
 
 export interface PasswordSignupResult {
+  auth?: AuthResponse | null;
   userId?: string | null;
   requiresEmailVerification: boolean;
   messages?: string[] | null;

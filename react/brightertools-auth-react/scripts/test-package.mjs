@@ -11,7 +11,7 @@ const npm = (args, cwd = root) => execFileSync(process.execPath, [process.env.np
 npm(['pack', '--pack-destination', artifacts])
 const consumer = mkdtempSync(resolve(artifacts, 'consumer-'))
 writeFileSync(resolve(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
-npm(['install', '--ignore-scripts', '--no-audit', resolve(artifacts, 'brightertools-auth-react-2.1.1.tgz'), 'react@19.3.0', 'react-dom@19.3.0', 'react-router-dom@7.18.4', 'typescript@7.0.2', '@types/react@19.3.0', '@types/react-dom@19.3.0'], consumer)
+npm(['install', '--ignore-scripts', '--no-audit', resolve(artifacts, 'brightertools-auth-react-2.2.0.tgz'), 'react@19.3.0', 'react-dom@19.3.0', 'react-router-dom@7.18.4', 'typescript@7.0.2', '@types/react@19.3.0', '@types/react-dom@19.3.0'], consumer)
 const code = `import * as auth from '@brightertools/auth-react';
 import * as session from '@brightertools/auth-react/session';
 import * as recaptcha from '@brightertools/auth-react/recaptcha';

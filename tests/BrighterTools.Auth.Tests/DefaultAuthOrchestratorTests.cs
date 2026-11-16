@@ -13,6 +13,92 @@ namespace BrighterTools.Auth.Tests;
 
 public sealed class DefaultAuthOrchestratorTests
 {
+    private sealed class Transaction : IAuthSessionTransaction
+    {
+        public int Calls;
+        public async Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default)
+        { Calls++; return await operation(cancellationToken); }
+    }
+
+    private sealed class SessionPersistence : IRefreshTokenPersistence
+    {
+        public Dictionary<string, PersistedRefreshToken> Rows = [];
+        public Task<PersistedRefreshToken?> ReadAsync(string hash, CancellationToken ct = default)
+            => Task.FromResult(Rows.GetValueOrDefault(hash));
+        public Task InsertAsync(PersistedRefreshToken record, CancellationToken ct = default)
+        { Rows.Add(record.TokenHash, record); return Task.CompletedTask; }
+        public Task<bool> TryReplaceAsync(string hash, DateTimeOffset now, PersistedRefreshToken replacement, CancellationToken ct = default)
+        {
+            if (!Rows.TryGetValue(hash, out var row) || row.RevokedAtUtc is not null) return Task.FromResult(false);
+            Rows[hash] = row with { RevokedAtUtc = now }; Rows.Add(replacement.TokenHash, replacement); return Task.FromResult(true);
+        }
+        public Task RevokeAsync(string hash, DateTimeOffset now, string? reason, CancellationToken ct = default)
+        { if (Rows.TryGetValue(hash, out var row)) Rows[hash] = row with { RevokedAtUtc = now }; return Task.CompletedTask; }
+    }
+
+    [Fact]
+    public async Task DefaultOrchestratorWorksWithTheRealHashOnlyStore()
+    {
+        var clock = new MovingClock(); var persistence = new SessionPersistence();
+        var store = new HashOnlyRefreshTokenStore(persistence, clock);
+        var harness = TestHarness.Create(correlated: true, transaction: new Transaction(), clock: clock, tokenStore: store);
+        var login = await harness.Orchestrator.LoginWithExternalProviderAsync(new() { Provider = AuthProviderType.Google, Credential = "valid", TenantId = "tenant-a" });
+        var initial = (await store.FindAsync(login.Session!.RefreshToken))!;
+        clock.UtcNow = clock.UtcNow.AddHours(1);
+        var refreshed = await harness.Orchestrator.RefreshAsync(new() { RefreshToken = initial.Token });
+        var rotated = (await store.FindAsync(refreshed.Session!.RefreshToken))!;
+        Assert.Equal(initial.Session!.LoginFamilyId, rotated.Session!.LoginFamilyId);
+        Assert.Equal(initial.Session.AuthenticatedAtUtc, rotated.Session.AuthenticatedAtUtc);
+        Assert.Equal(AuthProviderType.Google, rotated.Provider);
+        Assert.Equal(rotated.Session, harness.PayloadBuilder.LastSession);
+        Assert.Null(await store.FindAsync(initial.Token));
+        Assert.DoesNotContain(persistence.Rows.Keys, key => key == initial.Token || key == rotated.Token);
+    }
+
+    [Fact]
+    public async Task CorrelatedSessionsPreserveProviderFamilyAndAuthenticationTime()
+    {
+        var clock = new MovingClock(); var transaction = new Transaction();
+        var harness = TestHarness.Create(correlated: true, transaction: transaction, clock: clock);
+        await harness.Orchestrator.LoginWithExternalProviderAsync(new() { Provider = AuthProviderType.Google, Credential = "valid", TenantId = "tenant-a" });
+        var initial = harness.RefreshTokenStore.StoredToken!;
+        Assert.NotNull(initial.Session);
+        Assert.Equal(initial.Session, harness.PayloadBuilder.LastSession);
+        Assert.NotEqual(Guid.Empty, initial.Session!.LoginFamilyId);
+        clock.UtcNow = clock.UtcNow.AddHours(1);
+        await harness.Orchestrator.RefreshAsync(new() { RefreshToken = initial.Token });
+        var next = harness.RefreshTokenStore.StoredToken!;
+        Assert.Equal(AuthProviderType.Google, next.Provider);
+        Assert.Equal("tenant-a", next.TenantId);
+        Assert.Equal(initial.Session.LoginFamilyId, next.Session!.LoginFamilyId);
+        Assert.Equal(initial.Session.AuthenticatedAtUtc, next.Session.AuthenticatedAtUtc);
+        Assert.NotEqual(initial.Session.SessionId, next.Session.SessionId);
+        Assert.Equal(2, transaction.Calls);
+    }
+
+    [Fact]
+    public async Task CorrelatedRefreshCannotSwitchCompanyAndSwitchRequiresCredential()
+    {
+        var harness = TestHarness.Create(correlated: true, transaction: new Transaction());
+        await harness.Orchestrator.LoginWithPasswordAsync(new() { Login = "alice@example.com", Password = "secret", TenantId = "tenant-a" });
+        await Assert.ThrowsAsync<AuthFailureException>(() => harness.Orchestrator.RefreshAsync(new() { RefreshToken = "refresh-1", TenantId = "tenant-b" }));
+        await Assert.ThrowsAsync<AuthFailureException>(() => harness.Orchestrator.SwitchTenantAsync(new() { UserId = "user-1", TenantId = "tenant-a", Provider = AuthProviderType.Password }));
+    }
+
+    [Fact]
+    public async Task CorrelatedVerifiedSignupIssuesItsSessionThroughTheOrchestrator()
+    {
+        var harness = TestHarness.Create(correlated: true, transaction: new Transaction());
+        harness.RegistrationWorkflowService.SignupResult = new() { UserId = "user-1" };
+        var result = await harness.Orchestrator.SignupWithPasswordAsync(new() { Email = "alice@example.com", Password = "secret" });
+        Assert.NotNull(result.Auth?.Session);
+        Assert.NotNull(harness.RefreshTokenStore.StoredToken?.Session);
+    }
+
+    [Fact]
+    public void CorrelatedSessionsRequireTransactionRegistration()
+        => Assert.Throws<InvalidOperationException>(() => TestHarness.Create(correlated: true));
+
     [Fact]
     public async Task DisabledEmailOtpRejectsBothStepsBeforeCallingTheHostWorkflow()
     {
@@ -459,6 +545,7 @@ public sealed class DefaultAuthOrchestratorTests
         public required FakeRegistrationWorkflowService RegistrationWorkflowService { get; init; }
         public required FakeEmailWorkflowService EmailWorkflowService { get; init; }
         public required FakeRefreshTokenStore RefreshTokenStore { get; init; }
+        public required FakeJwtPayloadBuilder PayloadBuilder { get; init; }
         public required FakeExternalLoginStore ExternalLoginStore { get; init; }
 
         public static TestHarness Create(
@@ -472,7 +559,7 @@ public sealed class DefaultAuthOrchestratorTests
             AuthUser? provisionedUser = null,
             AuthUser? reloadedUser = null,
             IUserLoginProviderPolicy? providerPolicy = null,
-            bool emailOtpEnabled = false, IPasswordlessEmailLoginWorkflowService? passwordlessWorkflow = null, IAuthSessionProfileContext? profileContext = null, IClock? clock = null, IAuthTenantSwitchStore? tenantSwitch = null)
+            bool emailOtpEnabled = false, IPasswordlessEmailLoginWorkflowService? passwordlessWorkflow = null, IAuthSessionProfileContext? profileContext = null, IClock? clock = null, IAuthTenantSwitchStore? tenantSwitch = null, bool correlated = false, IAuthSessionTransaction? transaction = null, IRefreshTokenStore? tokenStore = null)
         {
             var user = CreateUser();
             var userLookup = new FakeUserLookupService(user, hasLinkedExternalLogin, reloadedUser ?? user);
@@ -480,6 +567,7 @@ public sealed class DefaultAuthOrchestratorTests
             var registrationWorkflow = new FakeRegistrationWorkflowService();
             var emailWorkflow = new FakeEmailWorkflowService();
             var refreshTokenStore = new FakeRefreshTokenStore();
+            var payloadBuilder = new FakeJwtPayloadBuilder();
             var externalLoginStore = new FakeExternalLoginStore();
             var authOptions = Microsoft.Extensions.Options.Options.Create(new BrighterToolsAuthOptions
             {
@@ -509,6 +597,7 @@ public sealed class DefaultAuthOrchestratorTests
             authOptions.Value.RefreshTokens.Profiles["native-mobile"] = TimeSpan.FromDays(90);
             if (emailOtpEnabled) authOptions.Value.Providers.EnabledProviders.Add(AuthProviderType.EmailOtp);
 
+            authOptions.Value.RefreshTokens.SessionMetadataEnabled = correlated;
             var orchestrator = new DefaultAuthOrchestrator(
                 userLookup,
                 userProvisioning,
@@ -521,9 +610,9 @@ public sealed class DefaultAuthOrchestratorTests
                 externalLoginStore,
                 new FakeExternalUserProvisioningPolicy(true),
                 new DefaultExternalSignupPolicy(authOptions),
-                new FakeJwtPayloadBuilder(),
+                payloadBuilder,
                 new FakeTokenIssuer(),
-                refreshTokenStore,
+                tokenStore ?? refreshTokenStore,
                 new FakeAuthSessionStore(),
                 new FakeTenantContextResolver(),
                 tenantSwitch ?? new UnsupportedAuthTenantSwitchStore(),
@@ -539,7 +628,7 @@ public sealed class DefaultAuthOrchestratorTests
                 new PreventLastLoginProviderUnlinkPolicy(),
                 new NoOpSecurityEventRecorder(),
                 clock ?? new FixedClock(),
-                authOptions, sessionProfileContext: profileContext);
+                authOptions, sessionProfileContext: profileContext, sessionTransaction: transaction);
 
             return new TestHarness
             {
@@ -548,6 +637,7 @@ public sealed class DefaultAuthOrchestratorTests
                 RegistrationWorkflowService = registrationWorkflow,
                 EmailWorkflowService = emailWorkflow,
                 RefreshTokenStore = refreshTokenStore,
+                PayloadBuilder = payloadBuilder,
                 ExternalLoginStore = externalLoginStore
             };
         }
@@ -707,6 +797,10 @@ public sealed class DefaultAuthOrchestratorTests
 
     private sealed class FakeJwtPayloadBuilder : IJwtPayloadBuilder
     {
+        public AuthSessionMetadata? LastSession;
+        public Task<AuthTokenDescriptor> BuildAsync(AuthUser user, AuthTenantMembership? tenant, AuthProviderType provider, AuthSessionMetadata session, CancellationToken ct = default)
+        { LastSession = session; return BuildAsync(user, tenant, provider, ct); }
+
         public Task<AuthTokenDescriptor> BuildAsync(AuthUser user, AuthTenantMembership? tenantMembership, AuthProviderType provider, CancellationToken cancellationToken = default)
             => Task.FromResult(new AuthTokenDescriptor { Subject = user.SubjectId, ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(15) });
     }
@@ -734,6 +828,7 @@ public sealed class DefaultAuthOrchestratorTests
                 Provider = request.Provider,
                 CreatedAtUtc = request.IssuedAtUtc,
                 SessionProfile = request.SessionProfile,
+                Session = request.Session,
                 ExpiresAtUtc = request.ExpiresAtUtc
             };
 
@@ -753,6 +848,7 @@ public sealed class DefaultAuthOrchestratorTests
                 Provider = request.Provider,
                 CreatedAtUtc = request.IssuedAtUtc,
                 SessionProfile = request.SessionProfile,
+                Session = request.Session,
                 ExpiresAtUtc = request.ExpiresAtUtc
             };
 

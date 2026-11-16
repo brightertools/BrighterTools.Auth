@@ -15,6 +15,9 @@ public sealed class BrighterToolsAuthOptionsValidator : IValidateOptions<Brighte
     {
         var failures = new List<string>();
 
+        if (options.RefreshTokens.SessionMetadataEnabled && !options.RefreshTokens.RotateOnRefresh)
+            failures.Add("Correlated sessions require refresh-token rotation.");
+
         if (options.Jwt.AccessTokenLifetime <= TimeSpan.Zero)
         {
             failures.Add("BrighterToolsAuth:Jwt:AccessTokenLifetime must be greater than zero.");

@@ -46,6 +46,7 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     private readonly IClock _clock;
     private readonly BrighterToolsAuthOptions _options;
     private readonly IAuthSessionProfileContext? _sessionProfileContext;
+    private readonly IAuthSessionTransaction? _sessionTransaction;
 
     /// <summary>
     /// Initializes a new instance of the DefaultAuthOrchestrator class.
@@ -82,7 +83,8 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         IClock clock,
         IOptions<BrighterToolsAuthOptions> options,
         ISignupEmailVerificationWorkflowService? signupEmailVerificationWorkflowService = null,
-        IAuthSessionProfileContext? sessionProfileContext = null)
+        IAuthSessionProfileContext? sessionProfileContext = null,
+        IAuthSessionTransaction? sessionTransaction = null)
     {
         _userLookupService = userLookupService;
         _userProvisioningService = userProvisioningService;
@@ -116,6 +118,10 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         _clock = clock;
         _options = options.Value;
         _sessionProfileContext = sessionProfileContext;
+        _sessionTransaction = sessionTransaction;
+        if (_options.RefreshTokens.SessionMetadataEnabled &&
+            (sessionTransaction is null || !_options.RefreshTokens.RotateOnRefresh))
+            throw new InvalidOperationException("Correlated sessions require a transaction implementation and token rotation.");
     }
 
     /// <summary>
@@ -278,7 +284,10 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
     /// <summary>
     /// Persists a new active tenant for an authenticated user and issues a session for that tenant.
     /// </summary>
-    public async Task<AuthResponse> SwitchTenantAsync(SwitchTenantRequest request, CancellationToken cancellationToken = default)
+    public Task<AuthResponse> SwitchTenantAsync(SwitchTenantRequest request, CancellationToken cancellationToken = default)
+        => InSessionTransactionAsync(ct => SwitchTenantCoreAsync(request, ct), cancellationToken);
+
+    private async Task<AuthResponse> SwitchTenantCoreAsync(SwitchTenantRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.UserId))
         {
@@ -291,6 +300,8 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         }
 
         AuthRefreshToken? current = null;
+        if (_options.RefreshTokens.SessionMetadataEnabled && string.IsNullOrWhiteSpace(request.RefreshToken))
+            throw new AuthFailureException("invalid_refresh_token", "Please sign in again.");
         if (!string.IsNullOrEmpty(request.RefreshToken))
         {
             current = await _refreshTokenStore.FindAsync(request.RefreshToken, cancellationToken);
@@ -350,6 +361,9 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         }
 
         var user = await _userLookupService.FindByIdAsync(refreshToken.UserId, cancellationToken);
+        if (_options.RefreshTokens.SessionMetadataEnabled &&
+            (request.SwitchToCurrentTenant || request.TenantId is not null && request.TenantId != refreshToken.TenantId))
+            throw new AuthFailureException("invalid_refresh_token", "Use the authenticated tenant-switch operation.");
         if (user is null || !user.CanSignIn || !_options.Providers.EnabledProviders.Contains(refreshToken.Provider))
             throw new AuthFailureException("invalid_refresh_token", "Please sign in again.");
         var policy = await _loginProviderPolicy.EvaluateAsync(user, refreshToken.Provider, request.TenantId ?? refreshToken.TenantId, cancellationToken);
@@ -373,15 +387,16 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         // fresh-session policy here, after their normal verification/registration workflow.
         ResolveSessionProfile(null);
         var result = await _registrationWorkflowService.SignupWithPasswordAsync(request, cancellationToken);
-        if (string.IsNullOrEmpty(_sessionProfileContext?.FreshSessionProfile) || result.RequiresEmailVerification || result.Auth?.Session is null)
+        if (result.RequiresEmailVerification || (!_options.RefreshTokens.SessionMetadataEnabled &&
+            (string.IsNullOrEmpty(_sessionProfileContext?.FreshSessionProfile) || result.Auth?.Session is null)))
             return result;
         var auth = await IssueSessionAsync(new IssueSessionRequest
         {
             UserId = result.UserId ?? throw new InvalidOperationException("Signup did not return a user."),
             Provider = AuthProviderType.Password, SwitchToCurrentTenant = true,
-            TenantId = result.Auth.Session.CurrentTenant?.TenantId
+            TenantId = result.Auth?.Session?.CurrentTenant?.TenantId
         }, cancellationToken);
-        if (!string.IsNullOrEmpty(result.Auth.Session.RefreshToken))
+        if (!string.IsNullOrEmpty(result.Auth?.Session?.RefreshToken))
             await _refreshTokenStore.RevokeAsync(result.Auth.Session.RefreshToken, "Replaced by signup session policy", cancellationToken);
         return new PasswordSignupResult { UserId = result.UserId, Auth = auth,
             RequiresEmailVerification = result.RequiresEmailVerification, Messages = result.Messages, Metadata = result.Metadata };
@@ -749,19 +764,38 @@ public sealed class DefaultAuthOrchestrator : IAuthOrchestrator
         return (id, lifetime);
     }
 
-    private async Task<AuthResponse> CreateAuthResponseAsync(AuthUser user, AuthProviderType provider, string? requestedTenantId, bool switchToCurrentTenant, CancellationToken cancellationToken, AuthRefreshToken? currentRefreshToken = null)
+    private Task<T> InSessionTransactionAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
+        => _sessionTransaction is null ? operation(cancellationToken) : _sessionTransaction.ExecuteAsync(operation, cancellationToken);
+
+    private Task<AuthResponse> CreateAuthResponseAsync(AuthUser user, AuthProviderType provider, string? requestedTenantId, bool switchToCurrentTenant, CancellationToken cancellationToken, AuthRefreshToken? currentRefreshToken = null)
+        => InSessionTransactionAsync(ct => CreateAuthResponseCoreAsync(user, provider, requestedTenantId, switchToCurrentTenant, ct, currentRefreshToken), cancellationToken);
+
+    private async Task<AuthResponse> CreateAuthResponseCoreAsync(AuthUser user, AuthProviderType provider, string? requestedTenantId, bool switchToCurrentTenant, CancellationToken cancellationToken, AuthRefreshToken? currentRefreshToken)
     {
         var profile = ResolveSessionProfile(currentRefreshToken);
         var tenantMembership = await _tenantContextResolver.ResolveAsync(user, requestedTenantId, switchToCurrentTenant, cancellationToken);
-        var descriptor = await _jwtPayloadBuilder.BuildAsync(user, tenantMembership, provider, cancellationToken);
+        var now = _clock.UtcNow;
+        AuthSessionMetadata? metadata = null;
+        if (_options.RefreshTokens.SessionMetadataEnabled)
+        {
+            if (currentRefreshToken is not null &&
+                (currentRefreshToken.Session is not { SessionId: var id, LoginFamilyId: var family } || id == Guid.Empty || family is null || family == Guid.Empty))
+                throw new AuthFailureException("invalid_refresh_token", "Please sign in again.");
+            metadata = new AuthSessionMetadata(Guid.NewGuid(), currentRefreshToken?.Session?.AuthenticatedAtUtc ?? now,
+                currentRefreshToken?.Session?.LoginFamilyId ?? Guid.NewGuid());
+        }
+        var descriptor = metadata is null
+            ? await _jwtPayloadBuilder.BuildAsync(user, tenantMembership, provider, cancellationToken)
+            : await _jwtPayloadBuilder.BuildAsync(user, tenantMembership, provider, metadata, cancellationToken);
         var accessToken = await _tokenIssuer.IssueAsync(descriptor, cancellationToken);
         var issueRequest = new RefreshTokenIssueRequest
         {
             UserId = user.Id,
             TenantId = tenantMembership?.TenantId,
             Provider = provider,
-            IssuedAtUtc = _clock.UtcNow,
-            ExpiresAtUtc = _clock.UtcNow.Add(profile.Lifetime),
+            IssuedAtUtc = now,
+            ExpiresAtUtc = now.Add(profile.Lifetime),
+            Session = metadata,
             SessionProfile = profile.Id
         };
 

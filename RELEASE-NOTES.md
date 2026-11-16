@@ -1,3 +1,11 @@
+# 1.3.0 / React 2.2.0
+
+- Opt-in session correlation before signing, inherited authentication time and family, and host transaction support.
+- Default orchestration works with the shared hash-only refresh store; opted-in refresh cannot change tenant.
+- React exposes locked host session transitions; shared login/passwordless/signup hooks use the coordinator.
+- Passwordless entry-button visibility is independent from provider/token-link capability.
+- Existing backend consumers keep their defaults. Opted-in hosts must register transaction/persistence support and arrange fresh sign-in.
+
 # React 2.1.1 — 12 November 2026
 
 The React package now emits explicit `.js` relative imports in JavaScript and
