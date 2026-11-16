@@ -32,8 +32,14 @@ export function createSessionCoordinator(api: AuthApiClient, storage: TokenStora
   const listeners = new Set<() => void>();
   const emit = () => { snapshot = { ...snapshot, now: Date.now() }; listeners.forEach(fn => fn()); };
   const clear = () => { clearTimeout(timer); clearTimeout(expiryTimer); };
-  const locked = <T>(work: () => Promise<T>): Promise<T> => typeof navigator !== "undefined" && navigator.locks
-    ? navigator.locks.request(`brightertools-refresh:${key}`, work) : work();
+  let localQueue: Promise<unknown> = Promise.resolve();
+  const locked = <T>(work: () => Promise<T>): Promise<T> => {
+    if (typeof navigator !== "undefined" && navigator.locks)
+      return navigator.locks.request(`brightertools-refresh:${key}`, work);
+    const pending = localQueue.then(work, work);
+    localQueue = pending.catch(() => undefined);
+    return pending;
+  };
   const schedule = () => {
     clear();
     if (!running || !snapshot.session) return;
@@ -101,12 +107,16 @@ export function createSessionCoordinator(api: AuthApiClient, storage: TokenStora
       return sessionExpiresAt(snapshot.session) - Date.now() > early || await refresh();
     },
     async authenticate(operation: () => Promise<AuthSession>) {
+      const requestedGeneration = generation, requestedSession = storage.get();
       return locked(async () => {
+        if (!running || requestedGeneration !== generation || !same(storage.get(), requestedSession))
+          throw new Error("The session changed. Please try again.");
         const revision = ++generation;
         clear();
         try {
           const session = await operation();
-          if (running && revision === generation) adopt(session, true);
+          if (!running || revision !== generation) throw new Error("The session changed. Please try again.");
+          adopt(session, true);
         } catch (error) {
           if (running && revision === generation) schedule();
           throw error;
@@ -114,10 +124,10 @@ export function createSessionCoordinator(api: AuthApiClient, storage: TokenStora
       });
     },
     async transition<T>(operation: () => Promise<T>, selectSession: (result: T) => AuthSession | null | undefined): Promise<T> {
-      const requestedGeneration = generation;
+      const requestedGeneration = generation, requestedSession = storage.get();
       return locked(async () => {
         // A queued operation cannot resurrect a session after logout or another transition.
-        if (!running || requestedGeneration !== generation) throw new Error("The session changed. Please try again.");
+        if (!running || requestedGeneration !== generation || !same(storage.get(), requestedSession)) throw new Error("The session changed. Please try again.");
         const revision = ++generation;
         clear();
         try {

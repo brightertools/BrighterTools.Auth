@@ -33,10 +33,12 @@ describe("refresh resilience", () => {
     const setup = mount(); let resolve!: (value: AuthSession) => void;
     let task!: Promise<AuthSession>;
     await act(async () => { task = context.transitionSession(() => new Promise(r => { resolve = r; }), r => r); });
-    await act(async () => { await context.logout(); });
+    let logout!: Promise<void>;
+    await act(async () => { logout = context.logout(); });
     await act(async () => {
       resolve(session(900));
       await expect(task).rejects.toThrow("session changed");
+      await logout;
     });
     expect(setup.storage.get()).toBeNull();
   });
@@ -49,6 +51,40 @@ describe("refresh resilience", () => {
     let logout!: Promise<void>;
     await act(async () => { logout = context.logout(); await callbacks[0](); await rejected; await callbacks[1](); await logout; });
     expect(operation).not.toHaveBeenCalled(); expect(setup.storage.get()).toBeNull();
+  });
+  it("does not start queued authentication after logout", async () => {
+    const callbacks: Array<() => Promise<unknown>> = [];
+    vi.stubGlobal("navigator", { locks: { request: vi.fn((_name, callback) => new Promise((resolve, reject) => { callbacks.push(async () => { try { resolve(await callback()); } catch (error) { reject(error); } }); })) } });
+    let stored: AuthSession | null = session();
+    const api = { logout: vi.fn(async () => ({ success: true })) } as unknown as AuthApiClient;
+    const coordinator = createSessionCoordinator(api, { get: () => stored, set: value => { stored = value; } });
+    coordinator.start();
+    try {
+      const operation = vi.fn(async () => session(900));
+      const authentication = coordinator.authenticate(operation);
+      const rejected = expect(authentication).rejects.toThrow("session changed");
+      const logout = coordinator.logout();
+      await callbacks[0](); await rejected; await callbacks[1](); await logout;
+      expect(operation).not.toHaveBeenCalled(); expect(stored).toBeNull();
+    } finally { coordinator.stop(); }
+  });
+  it("waits for a pending exchange before server logout without Web Locks", async () => {
+    vi.stubGlobal("navigator", {});
+    const apiLogout = vi.fn(async () => ({ success: true }));
+    let stored: AuthSession | null = session();
+    const coordinator = createSessionCoordinator({ logout: apiLogout } as unknown as AuthApiClient,
+      { get: () => stored, set: value => { stored = value; } });
+    coordinator.start();
+    try {
+      let finish!: (value: AuthSession) => void;
+      const authentication = coordinator.authenticate(() => new Promise(resolve => { finish = resolve; }));
+      await Promise.resolve();
+      const rejected = expect(authentication).rejects.toThrow("session changed");
+      const logout = coordinator.logout();
+      expect(stored).toBeNull(); expect(apiLogout).not.toHaveBeenCalled();
+      finish(session(900)); await rejected; await logout;
+      expect(apiLogout).toHaveBeenCalledOnce(); expect(stored).toBeNull();
+    } finally { coordinator.stop(); }
   });
   it("keeps scheduled renewal after a failed fresh authentication", async () => {
     let stored: AuthSession | null = session(300);
@@ -104,14 +140,15 @@ describe("refresh resilience", () => {
     let task!: Promise<boolean>;
     await act(async () => { task = context.refreshSession(); await Promise.resolve(); });
     const replacement = session(800);
+    let logout: Promise<void> | undefined;
     await act(async () => {
-      if (action === "logout") await context.logout();
+      if (action === "logout") logout = context.logout();
       if (action === "tenant") context.setAuthenticatedSession(replacement);
       if (action === "storage") { setup.storage.set(replacement); window.dispatchEvent(new StorageEvent("storage", { key: "bt.auth.session" })); }
       if (action === "unmount") setup.unmount();
     });
     const before = setup.storage.get();
-    await act(async () => { resolve({ success: true, data: { session: session(1000) } }); await task; });
+    await act(async () => { resolve({ success: true, data: { session: session(1000) } }); await task; await logout; });
     expect(setup.storage.get()).toEqual(before);
   });
   it("coalesces concurrent requests and keeps a valid form visible during refresh", async () => {

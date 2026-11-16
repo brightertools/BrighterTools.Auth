@@ -1,3 +1,9 @@
+# React 2.2.1 race follow-up - 16 November 2026
+
+NuGet 1.3.0 and React 2.2.0 were published in workflow 43971697129.
+React 2.2.1 adds pre-lock stale-generation/storage checks to fresh authentication and a local exchange queue when Web Locks are unavailable. A queued login cannot resurrect logout; server logout waits for pending cookie rotation.
+All 158 React tests and the TypeScript build passed. Publish npm only; NuGet remains 1.3.0.
+
 # Correlated sessions release — 16 November 2026
 
 Prepared NuGet 1.3.0 and React 2.2.0 on codex/adfast-session-replacement from the exact 2.1.1 release commit.

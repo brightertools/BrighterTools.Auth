@@ -20,3 +20,8 @@ Failed operations preserve the current session. Logout or replacement during the
 Login, external login/signup and passwordless hooks now use the coordinator; refresh/logout hooks use its lifecycle.
 `LoginPanel.showPasswordlessOption=false` hides only the entry button, retaining enabled token-link completion.
 `passwordlessEnabled=false` still disables the entire provider UI. Backend eligibility remains authoritative.
+
+React 2.2.1 also rejects queued fresh logins after logout or another session change.
+Without Web Locks, operations use an in-process queue; logout clears local state immediately
+but waits for an outstanding exchange before revoking the latest server cookie.
+Cross-tab serialization requires browser Web Locks support.
