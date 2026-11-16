@@ -1,10 +1,21 @@
+# Published correlated sessions - 16 November 2026
+
+NuGet **1.3.0** and React **2.2.1** are published and consumed by Adfast.
+- Backend release workflow: https://github.com/brightertools/BrighterTools.Auth/actions/runs/43971697129
+- React follow-up workflow: https://github.com/brightertools/BrighterTools.Auth/actions/runs/43979398150
+- Release source: `09d72735f90526000b9584ba81508f3ea147d058` on `codex/adfast-session-replacement`.
+- Validation: 67 backend tests, 158 React tests, build, installed tarball native ESM/NodeNext and audit passed.
+- The first 2.2.1 release attempt stopped before publishing because the archive smoke test had a hard-coded 2.2.0 filename. Both verification and publication now derive the filename from package metadata.
+
+The host opts into correlated sessions with the supported persistence/transaction contracts in `docs/correlated-sessions.md`. Other consumers retain defaults. No application deployment or live consumer migration was performed.
+
 # React 2.2.1 race follow-up - 16 November 2026
 
 NuGet 1.3.0 and React 2.2.0 were published in workflow 43971697129.
 React 2.2.1 adds pre-lock stale-generation/storage checks to fresh authentication and a local exchange queue when Web Locks are unavailable. A queued login cannot resurrect logout; server logout waits for pending cookie rotation.
 All 158 React tests and the TypeScript build passed. Publish npm only; NuGet remains 1.3.0.
 
-# Correlated sessions release — 16 November 2026
+# Correlated sessions release ï¿½ 16 November 2026
 
 Prepared NuGet 1.3.0 and React 2.2.0 on codex/adfast-session-replacement from the exact 2.1.1 release commit.
 See docs/correlated-sessions.md for host contracts. Existing host options remain unchanged.
