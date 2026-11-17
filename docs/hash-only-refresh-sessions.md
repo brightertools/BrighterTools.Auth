@@ -1,4 +1,13 @@
 # Hash-Only Refresh Sessions
+
+## Current state - 17 November 2026
+
+Backend 1.3.0 and React 2.2.1 are published. The opted-in shared orchestrator now creates metadata before JWT/token issuance and supports a host transaction boundary. See [consumer upgrade guidance](consumer-upgrade-1.3.md) and [correlated-session contracts](correlated-sessions.md).
+
+Hash-only lookup rejects consumed tokens, but returns null before the default orchestrator's revoked-ancestor handling. Automatic revocation of an active successor on ancestor replay remains an open review item; explicit host family logout is separate. See the consumer guide for exact limits and required tests.
+
+The dated notes below are historical. Their “nothing published” and “orchestrator not yet integrated” statements no longer describe these releases. References to other apps are not fresh verification of their current repositories; review those implementations separately on the other computer.
+
 ## Stable Login Families (1 November 2026)
 
 `AuthSessionMetadata.LoginFamilyId` is an optional additive GUID, distinct from the

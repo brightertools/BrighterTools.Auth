@@ -1,26 +1,40 @@
-# Published correlated sessions - 16 November 2026
+# BrighterTools.Auth handoff - 17 November 2026
 
-NuGet **1.3.0** and React **2.2.1** are published and consumed by Adfast.
-- Backend release workflow: https://github.com/brightertools/BrighterTools.Auth/actions/runs/43971697129
-- React follow-up workflow: https://github.com/brightertools/BrighterTools.Auth/actions/runs/43979398150
-- Release source: `09d72735f90526000b9584ba81508f3ea147d058` on `codex/adfast-session-replacement`.
-- Validation: 67 backend tests, 158 React tests, build, installed tarball native ESM/NodeNext and audit passed.
-- The first 2.2.1 release attempt stopped before publishing because the archive smoke test had a hard-coded 2.2.0 filename. Both verification and publication now derive the filename from package metadata.
+## Current published state
 
-The host opts into correlated sessions with the supported persistence/transaction contracts in `docs/correlated-sessions.md`. Other consumers retain defaults. No application deployment or live consumer migration was performed.
+NuGet **1.3.0** and React **2.2.1** are published and consumed by Adfast. Start with the [consumer upgrade handoff](docs/consumer-upgrade-1.3.md) when reviewing another application in its own repository.
+
+- Backend source: `c0d7f8f886865420996710954ec5301c6af31087`; final React release source: `09d72735f90526000b9584ba81508f3ea147d058`.
+- Source and handoff branch: `codex/adfast-session-replacement`. Fetch this branch explicitly on the other computer; default-branch integration is not asserted here.
+- Successful releases: [backend 1.3.0 / React 2.2.0](https://github.com/brightertools/BrighterTools.Auth/actions/runs/43971697129), [React 2.2.1](https://github.com/brightertools/BrighterTools.Auth/actions/runs/43979398150).
+- Verification: 67 backend and 158 React tests, builds, installed-tarball native ESM/NodeNext checks and release audits passed. The first 2.2.1 attempt failed before publication because of a hard-coded archive name; verification/publication now derive it from package metadata.
+- Backend correlated sessions are opt-in. Package installation alone does not migrate another app's persistence. React coordinator changes require review of custom hooks/context mocks even with backend metadata disabled.
+- Other applications are on another computer and have not been reviewed or changed during the Adfast work. Historical app-specific notes below must be reverified against those repositories.
+
+## Next-session follow-up
+
+Review each consumer's persistence, shared-orchestrator adoption, session validation, frontend coordination and deployment requirements using the [consumer checklist](docs/consumer-upgrade-1.3.md). Keep each app's findings in its own repository. Do not copy Adfast-specific schemas/cookies or infer that other apps have already adopted them.
+
+An open upstream issue is documented in the guide: the hash-only lookup hides consumed records, so the orchestrator's revoked-ancestor branch is not reached. Old-token replay is rejected, but replay-triggered revocation of the active family is not implemented by that path. Explicit family logout is a separate host capability. No runtime fix or new package release is included in this documentation update.
+
+Adfast's implementation was merged into its `develop` branch at `097e52f05`. Its recorded checks include 306 backend cases across the broad run and isolated Xero retry, 222 frontend tests, generation/builds and an EF model check. One optional native PDF fixture was skipped. Real provider and portal-hostname smoke tests remain deployment work. No live application migration, deployment or authentication email was performed by this task.
+
+## Historical checkpoints
+
+Everything below is dated history. Earlier “prepared”, “publish” or “not yet implemented” instructions are superseded by the current published state above; they are not instructions to republish existing versions.
 
 # React 2.2.1 race follow-up - 16 November 2026
 
 NuGet 1.3.0 and React 2.2.0 were published in workflow 43971697129.
 React 2.2.1 adds pre-lock stale-generation/storage checks to fresh authentication and a local exchange queue when Web Locks are unavailable. A queued login cannot resurrect logout; server logout waits for pending cookie rotation.
-All 158 React tests and the TypeScript build passed. Publish npm only; NuGet remains 1.3.0.
+All 158 React tests and the TypeScript build passed. The npm-only release subsequently completed; NuGet remains 1.3.0.
 
-# Correlated sessions release � 16 November 2026
+# Correlated sessions release - 16 November 2026
 
 Prepared NuGet 1.3.0 and React 2.2.0 on codex/adfast-session-replacement from the exact 2.1.1 release commit.
 See docs/correlated-sessions.md for host contracts. Existing host options remain unchanged.
 Local tests: 67 backend and 156 React passed; installed tarball/native ESM/NodeNext checks passed; npm audit found zero vulnerabilities.
-No consumer database migration or deployment performed. Publish through the existing trusted workflow.
+No consumer database migration or deployment was performed. Publication subsequently completed through the trusted workflow linked above.
 
 # Shared Auth release handoff — 12 November 2026
 

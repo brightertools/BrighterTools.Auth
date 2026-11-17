@@ -1,5 +1,7 @@
 # Correlated sessions (opt in)
 
+Updated 17 November 2026 for backend 1.3.0 / React 2.2.1. See the [consumer upgrade handoff](consumer-upgrade-1.3.md) for app-specific adoption, compatibility checks and the open ancestor-replay revocation limitation. These releases are published; other applications still require individual review.
+
 Version 1.3.0 adds `RefreshTokens.SessionMetadataEnabled`. Leave it false for existing hosts.
 Opted-in hosts register `IAuthSessionTransaction`, use rotating tokens and round-trip `AuthSessionMetadata`.
 The transaction must join nested calls using one scoped unit of work and roll back every failure.
@@ -25,3 +27,5 @@ React 2.2.1 also rejects queued fresh logins after logout or another session cha
 Without Web Locks, operations use an in-process queue; logout clears local state immediately
 but waits for an outstanding exchange before revoking the latest server cookie.
 Cross-tab serialization requires browser Web Locks support.
+
+Installing these versions does not automatically enable hash-only persistence, change another app's cookies or force its users to sign in again. Full adoption requires the host contracts above.
