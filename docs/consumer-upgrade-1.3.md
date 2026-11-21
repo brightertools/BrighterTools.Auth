@@ -1,5 +1,7 @@
 # Consumer handoff: backend 1.3.0 / React 2.2.1
 
+Latest consumer follow-up: [21 November browser refresh HTTP 400 and recovery handoff](browser-refresh-recovery-handoff.md). Check cookie-only endpoint binding and recovery guards in each app; no new package release.
+
 Updated 17 November 2026. This is guidance for reviewing each consuming application in its own repository. Other applications were not inspected or changed during the Adfast integration work; older references to their implementations are historical observations, not current acceptance evidence.
 
 ## Published source and evidence

@@ -1,4 +1,13 @@
-# BrighterTools.Auth handoff - 17 November 2026
+# BrighterTools.Auth handoff - 21 November 2026
+
+## Browser refresh and recovery follow-up — 21 November 2026
+
+Start with [the browser refresh/recovery handoff](docs/browser-refresh-recovery-handoff.md)
+when checking other apps on this or another machine. Adfast confirmed cookie-only
+refresh/logout requests were rejected by shared token-required HTTP body DTO validation.
+The guide describes the host DTO fix, recovery/route-guard behaviour and real-HTTP/UI
+acceptance matrix. Existing shared DTO validation and coordinator remain intact.
+This is documentation only; no package release or other-app fix is claimed.
 
 ## Current published state
 
@@ -9,7 +18,7 @@ NuGet **1.3.0** and React **2.2.1** are published and consumed by Adfast. Start 
 - Successful releases: [backend 1.3.0 / React 2.2.0](https://github.com/brightertools/BrighterTools.Auth/actions/runs/43971697129), [React 2.2.1](https://github.com/brightertools/BrighterTools.Auth/actions/runs/43979398150).
 - Verification: 67 backend and 158 React tests, builds, installed-tarball native ESM/NodeNext checks and release audits passed. The first 2.2.1 attempt failed before publication because of a hard-coded archive name; verification/publication now derive it from package metadata.
 - Backend correlated sessions are opt-in. Package installation alone does not migrate another app's persistence. React coordinator changes require review of custom hooks/context mocks even with backend metadata disabled.
-- Other applications are on another computer and have not been reviewed or changed during the Adfast work. Historical app-specific notes below must be reverified against those repositories.
+- Other applications may be on this or another computer and have not been reviewed or changed during this handoff. Historical app-specific notes below must be reverified against those repositories.
 
 ## Next-session follow-up
 

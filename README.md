@@ -1,5 +1,7 @@
 # BrighterTools.Auth
 
+Latest consumer follow-up: [21 November browser refresh HTTP 400 and recovery handoff](./docs/browser-refresh-recovery-handoff.md). Check cookie-only endpoint binding and recovery guards in each app; no new package release.
+
 `BrighterTools.Auth` is an authentication composition library for ASP.NET Core applications with a React companion package for reusable auth UI flows.
 
 It is not a security boundary or turnkey authentication system. The host application owns endpoints, principal binding, authorization decisions, persistence, JWT signing, refresh-token storage, provider credentials, and business-specific account workflows.
